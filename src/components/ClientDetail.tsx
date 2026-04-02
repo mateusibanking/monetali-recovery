@@ -2,13 +2,14 @@ import { useState } from 'react';
 import {
   ArrowLeft, Save, Calendar, Mail, Phone, FileText, MessageSquare,
   CreditCard, Tag, Clock, Plus, X, Edit2, AlertCircle, CheckCircle2, CircleDot, AlertTriangle, Calculator,
+  Send, Link as LinkIcon, Upload,
 } from 'lucide-react';
 import {
   Client, Situacao, Flag, Payment, PaymentStatus, TimelineEvent,
   formatCurrency, situacaoLabels,
   DEFAULT_FLAGS, customFlags, clientPayments, clientTimelines, getFlagColor,
 } from '@/data/mockData';
-import { calcularJuros } from '@/data/premissas';
+import { calcularJuros, premissas, type EmailTemplate } from '@/data/premissas';
 import StatusBadge from './StatusBadge';
 
 interface Props {
@@ -30,6 +31,15 @@ const TIMELINE_ICONS: Record<string, typeof Mail> = {
   status_change: AlertCircle, payment: CreditCard, flag: Tag, note: FileText,
 };
 
+const substituirVariaveis = (texto: string, client: Client, openPaymentsCount: number, valorTotal: number) => {
+  return texto
+    .replace(/\{\{nome_cliente\}\}/g, client.nome)
+    .replace(/\{\{cnpj\}\}/g, client.cnpj || 'N/A')
+    .replace(/\{\{valor_total\}\}/g, formatCurrency(valorTotal))
+    .replace(/\{\{dias_atraso\}\}/g, String(client.diasAtraso))
+    .replace(/\{\{parcelas_abertas\}\}/g, String(openPaymentsCount));
+};
+
 const ClientDetail = ({ client, onBack }: Props) => {
   const [form, setForm] = useState({
     compensacao: client.compensacao,
@@ -48,13 +58,13 @@ const ClientDetail = ({ client, onBack }: Props) => {
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   const [newFlagInput, setNewFlagInput] = useState('');
   const [showParcelamento, setShowParcelamento] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
 
   const allAvailableFlags = [...new Set([...DEFAULT_FLAGS, ...customFlags, ...form.flags])];
   const openPayments = payments.filter(p => p.status !== 'Pago');
   const openTotal = openPayments.reduce((s, p) => s + p.valor, 0);
   const timeline = (clientTimelines[client.id] || []).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  // Auto interest calculation
   const { jurosAcumulados, valorAtualizado } = calcularJuros(form.compensacao, form.diasAtraso);
 
   const handleSave = () => {
@@ -117,7 +127,6 @@ const ClientDetail = ({ client, onBack }: Props) => {
 
     setPayments(prev => [...prev, ...newPayments]);
 
-    // Add timeline event
     if (!clientTimelines[client.id]) clientTimelines[client.id] = [];
     clientTimelines[client.id].push({
       id: `tl-parc-${Date.now()}`,
@@ -128,7 +137,6 @@ const ClientDetail = ({ client, onBack }: Props) => {
       agent: form.executivo || 'Sistema',
     });
 
-    // Add parcelas to timeline
     newPayments.forEach(p => {
       clientTimelines[client.id].push({
         id: `tl-parcela-${p.id}`,
@@ -141,6 +149,20 @@ const ClientDetail = ({ client, onBack }: Props) => {
     });
 
     setShowParcelamento(false);
+  };
+
+  const handleEmailSent = (assunto: string) => {
+    if (!clientTimelines[client.id]) clientTimelines[client.id] = [];
+    const now = new Date();
+    clientTimelines[client.id].push({
+      id: `tl-email-${Date.now()}`,
+      clientId: client.id,
+      date: now.toISOString(),
+      type: 'email',
+      description: `Email de cobrança enviado em ${now.toLocaleDateString('pt-BR')} — assunto: ${assunto}`,
+      agent: form.executivo || 'Sistema',
+    });
+    setShowEmailModal(false);
   };
 
   const numField = (field: 'compensacao' | 'juros' | 'boletoVitbank' | 'pixMonetali' | 'diasAtraso' | 'parcelas', label: string) => (
@@ -167,10 +189,16 @@ const ClientDetail = ({ client, onBack }: Props) => {
         <button onClick={onBack} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="h-4 w-4" /> Voltar
         </button>
-        <button onClick={handleSave}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${saved ? 'bg-[hsl(var(--recovered))] text-white' : 'bg-primary text-primary-foreground hover:bg-primary/90'}`}>
-          <Save className="h-4 w-4" /> {saved ? 'Salvo!' : 'Salvar'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setShowEmailModal(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-accent/15 text-accent border border-accent/25 hover:bg-accent/25 transition-colors">
+            <Mail className="h-4 w-4" /> Enviar email de cobrança
+          </button>
+          <button onClick={handleSave}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${saved ? 'bg-[hsl(var(--recovered))] text-white' : 'bg-primary text-primary-foreground hover:bg-primary/90'}`}>
+            <Save className="h-4 w-4" /> {saved ? 'Salvo!' : 'Salvar'}
+          </button>
+        </div>
       </div>
 
       {/* JUROS AUTOMÁTICOS */}
@@ -353,6 +381,203 @@ const ClientDetail = ({ client, onBack }: Props) => {
           {numField('parcelas', 'Parcelas')}
           {textField('regional', 'Regional')}
           {textField('executivo', 'Executivo')}
+        </div>
+      </div>
+
+      {/* EMAIL MODAL */}
+      {showEmailModal && (
+        <EmailCobrancaModal
+          client={client}
+          openPaymentsCount={openPayments.length}
+          valorTotal={valorAtualizado}
+          onClose={() => setShowEmailModal(false)}
+          onSend={handleEmailSent}
+        />
+      )}
+    </div>
+  );
+};
+
+/* Email Cobrança Modal */
+const EmailCobrancaModal = ({
+  client,
+  openPaymentsCount,
+  valorTotal,
+  onClose,
+  onSend,
+}: {
+  client: Client;
+  openPaymentsCount: number;
+  valorTotal: number;
+  onClose: () => void;
+  onSend: (assunto: string) => void;
+}) => {
+  const templates = premissas.templates;
+  const [selectedTemplateId, setSelectedTemplateId] = useState(templates[0]?.id || '');
+  const selectedTemplate = templates.find(t => t.id === selectedTemplateId);
+
+  const [destinatario, setDestinatario] = useState(premissas.emailRemetente);
+  const [assunto, setAssunto] = useState('');
+  const [corpo, setCorpo] = useState('');
+  const [linkUrl, setLinkUrl] = useState('');
+  const [anexoName, setAnexoName] = useState('');
+  const [scheduleDate, setScheduleDate] = useState('');
+  const [sending, setSending] = useState(false);
+
+  const applyTemplate = (template: EmailTemplate) => {
+    setAssunto(substituirVariaveis(template.assunto, client, openPaymentsCount, valorTotal));
+    setCorpo(substituirVariaveis(template.corpo, client, openPaymentsCount, valorTotal));
+  };
+
+  // Apply template on mount and when selection changes
+  useState(() => {
+    if (selectedTemplate) applyTemplate(selectedTemplate);
+  });
+
+  const handleTemplateChange = (id: string) => {
+    setSelectedTemplateId(id);
+    const t = templates.find(t => t.id === id);
+    if (t) applyTemplate(t);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) setAnexoName(file.name);
+  };
+
+  const handleSend = (scheduled: boolean) => {
+    setSending(true);
+    setTimeout(() => {
+      onSend(assunto);
+    }, 600);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-card rounded-xl border border-border shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between p-5 border-b border-border/50">
+          <h4 className="font-semibold text-lg flex items-center gap-2">
+            <Mail className="h-5 w-5 text-accent" /> Enviar Email de Cobrança
+          </h4>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="h-5 w-5" /></button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {/* Destinatário */}
+          <div>
+            <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Destinatário</label>
+            <input
+              type="email"
+              value={destinatario}
+              onChange={e => setDestinatario(e.target.value)}
+              className="w-full mt-1 px-3 py-2 bg-secondary/50 border border-border/50 rounded-lg text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary/50"
+              placeholder="email@empresa.com"
+            />
+          </div>
+
+          {/* Template selector */}
+          <div>
+            <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Template</label>
+            <select
+              value={selectedTemplateId}
+              onChange={e => handleTemplateChange(e.target.value)}
+              className="w-full mt-1 px-3 py-2 bg-secondary/50 border border-border/50 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary/50 text-foreground"
+            >
+              {templates.map(t => (
+                <option key={t.id} value={t.id}>{t.nome}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Assunto */}
+          <div>
+            <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Assunto</label>
+            <input
+              type="text"
+              value={assunto}
+              onChange={e => setAssunto(e.target.value)}
+              className="w-full mt-1 px-3 py-2 bg-secondary/50 border border-border/50 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
+            />
+          </div>
+
+          {/* Corpo */}
+          <div>
+            <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Corpo do Email</label>
+            <textarea
+              value={corpo}
+              onChange={e => setCorpo(e.target.value)}
+              rows={10}
+              className="w-full mt-1 px-3 py-2 bg-secondary/50 border border-border/50 rounded-lg text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary/50 resize-y"
+            />
+          </div>
+
+          {/* Anexo + Link */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Anexo (PDF)</label>
+              <div className="mt-1 relative">
+                <input type="file" accept=".pdf" onChange={handleFileSelect} className="hidden" id="email-anexo" />
+                <label htmlFor="email-anexo"
+                  className="flex items-center gap-2 px-3 py-2 bg-secondary/50 border border-border/50 rounded-lg text-sm cursor-pointer hover:bg-secondary/70 transition-colors">
+                  <Upload className="h-4 w-4 text-muted-foreground" />
+                  <span className={anexoName ? 'text-foreground' : 'text-muted-foreground'}>
+                    {anexoName || 'Selecionar arquivo...'}
+                  </span>
+                </label>
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium flex items-center gap-1">
+                <LinkIcon className="h-3.5 w-3.5" /> Link (Omie/Portal)
+              </label>
+              <input
+                type="url"
+                value={linkUrl}
+                onChange={e => setLinkUrl(e.target.value)}
+                placeholder="https://..."
+                className="w-full mt-1 px-3 py-2 bg-secondary/50 border border-border/50 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
+              />
+            </div>
+          </div>
+
+          {/* Agendar */}
+          <div>
+            <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Agendar Envio (opcional)</label>
+            <input
+              type="datetime-local"
+              value={scheduleDate}
+              onChange={e => setScheduleDate(e.target.value)}
+              className="w-full mt-1 px-3 py-2 bg-secondary/50 border border-border/50 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
+            />
+          </div>
+
+          {/* Info badge */}
+          <div className="p-3 bg-secondary/30 rounded-lg text-xs text-muted-foreground">
+            <p><strong>Cliente:</strong> {client.nome} | <strong>CNPJ:</strong> {client.cnpj} | <strong>Atraso:</strong> {client.diasAtraso} dias | <strong>Valor:</strong> {formatCurrency(valorTotal)}</p>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center justify-end gap-3 p-5 border-t border-border/50">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+            Cancelar
+          </button>
+          {scheduleDate && (
+            <button
+              onClick={() => handleSend(true)}
+              disabled={sending || !assunto || !corpo}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-secondary text-foreground border border-border hover:bg-secondary/80 transition-colors disabled:opacity-50"
+            >
+              <Clock className="h-4 w-4" /> Agendar envio
+            </button>
+          )}
+          <button
+            onClick={() => handleSend(false)}
+            disabled={sending || !assunto || !corpo}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+          >
+            <Send className="h-4 w-4" /> {sending ? 'Enviando...' : 'Enviar agora'}
+          </button>
         </div>
       </div>
     </div>
