@@ -5,15 +5,14 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 
 
 const RecuperacoesPage = () => {
   const parcelados = clients.filter(c => c.situacao === 'PARCELADO');
-  const cobrancaOk = clients.filter(c => c.situacao === 'COBRANÇA OK');
+  const cobrancaAndamento = clients.filter(c => c.situacao === 'COBRANÇA EM ANDAMENTO');
 
-  const totalRecuperado = cobrancaOk.reduce((s, c) => s + c.compensacao, 0);
+  const totalRecuperado = cobrancaAndamento.reduce((s, c) => s + c.compensacao, 0);
   const totalParcelamento = parcelados.reduce((s, c) => s + c.compensacao, 0);
-  const taxaRecuperacao = ((cobrancaOk.length / clients.length) * 100).toFixed(1);
+  const taxaRecuperacao = ((cobrancaAndamento.length / clients.length) * 100).toFixed(1);
 
-  // Valor recuperado por executivo (only COBRANÇA OK)
   const execMap = new Map<string, number>();
-  cobrancaOk.forEach(c => {
+  cobrancaAndamento.forEach(c => {
     execMap.set(c.executivo, (execMap.get(c.executivo) || 0) + c.compensacao);
   });
   const execData = Array.from(execMap.entries())
@@ -21,9 +20,9 @@ const RecuperacoesPage = () => {
     .sort((a, b) => b.valor - a.valor);
 
   const stats = [
-    { label: 'Total Recuperado', value: formatCurrency(totalRecuperado), icon: DollarSign, color: 'text-recovered' },
+    { label: 'Total em Cobrança', value: formatCurrency(totalRecuperado), icon: DollarSign, color: 'text-partial' },
     { label: 'Em Parcelamento', value: formatCurrency(totalParcelamento), icon: TrendingUp, color: 'text-negotiation' },
-    { label: 'Taxa de Recuperação', value: `${taxaRecuperacao}%`, icon: Percent, color: 'text-primary' },
+    { label: 'Taxa Cobrança em Andamento', value: `${taxaRecuperacao}%`, icon: Percent, color: 'text-primary' },
   ];
 
   const tooltipStyle = {
@@ -35,7 +34,6 @@ const RecuperacoesPage = () => {
     <div className="space-y-6">
       <h2 className="text-xl font-bold text-foreground">Recuperações & Parcelamentos</h2>
 
-      {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {stats.map((s) => (
           <div key={s.label} className="glass-card p-5 group hover:border-primary/30 transition-all duration-300">
@@ -48,9 +46,8 @@ const RecuperacoesPage = () => {
         ))}
       </div>
 
-      {/* Chart */}
       <div className="glass-card p-5">
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Valor Recuperado por Executivo</h3>
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Valor por Executivo (Cobrança em Andamento)</h3>
         <ResponsiveContainer width="100%" height={260}>
           <BarChart data={execData} layout="vertical">
             <XAxis type="number" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `R$${(v / 1_000_000).toFixed(1)}M`} />
@@ -58,14 +55,13 @@ const RecuperacoesPage = () => {
             <Tooltip {...tooltipStyle} formatter={(v: number) => formatCurrency(v)} />
             <Bar dataKey="valor" radius={[0, 6, 6, 0]}>
               {execData.map((_, i) => (
-                <Cell key={i} fill="hsl(160, 84%, 39%)" />
+                <Cell key={i} fill="#3b82f6" />
               ))}
             </Bar>
           </BarChart>
         </ResponsiveContainer>
       </div>
 
-      {/* Client Lists */}
       {parcelados.length > 0 && (
         <div>
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Parcelados ({parcelados.length})</h3>
@@ -89,13 +85,13 @@ const RecuperacoesPage = () => {
       )}
 
       <div>
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Cobrança OK ({cobrancaOk.length})</h3>
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Cobrança em Andamento ({cobrancaAndamento.length})</h3>
         <div className="grid gap-3">
-          {cobrancaOk.map(client => (
+          {cobrancaAndamento.map(client => (
             <div key={client.id} className="glass-card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-recovered/15 flex items-center justify-center shrink-0">
-                  <CheckCircle className="h-4 w-4 text-recovered" />
+                <div className="w-9 h-9 rounded-full bg-partial/15 flex items-center justify-center shrink-0">
+                  <CheckCircle className="h-4 w-4 text-partial" />
                 </div>
                 <div>
                   <p className="font-semibold text-sm text-foreground">{client.nome}</p>

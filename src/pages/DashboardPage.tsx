@@ -1,9 +1,9 @@
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { clients, situacaoLabels, formatCurrency, Situacao } from '@/data/mockData';
 import KpiCards from '@/components/KpiCards';
 
 const COLORS_STATUS: Record<Situacao, string> = {
-  'COBRANÇA OK': '#10b981',
+  'COBRANÇA EM ANDAMENTO': '#3b82f6',
   'NÃO PAGO': '#ef4444',
   'PARCELADO': '#f59e0b',
   'DISTRATO': '#8b5cf6',
@@ -46,33 +46,34 @@ const DashboardPage = () => {
     labelStyle: { color: '#6b7280' },
   };
 
-
   return (
     <div className="space-y-6">
       <h2 className="text-xl font-bold">Dashboard</h2>
       <KpiCards />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="glass-card p-5" style={{ minHeight: 360 }}>
+        <div className="glass-card p-5" style={{ minHeight: 400 }}>
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Distribuição por Status</h3>
-          <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer width="100%" height={340}>
             <PieChart>
               <Pie
                 data={statusData}
                 dataKey="value"
                 nameKey="name"
                 cx="50%"
-                cy="50%"
+                cy="45%"
                 outerRadius={90}
                 innerRadius={45}
                 strokeWidth={2}
                 stroke="#ffffff"
-                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                labelLine={{ stroke: '#6b7280' }}
-                style={{ fontSize: 11 }}
               >
                 {statusData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
               </Pie>
               <Tooltip {...tooltipStyle} />
+              <Legend
+                verticalAlign="bottom"
+                height={36}
+                formatter={(value: string) => <span style={{ color: '#374151', fontSize: 12 }}>{value}</span>}
+              />
             </PieChart>
           </ResponsiveContainer>
         </div>
@@ -96,7 +97,7 @@ const DashboardPage = () => {
               <XAxis type="number" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `R$${(v / 1_000_000).toFixed(1)}M`} />
               <YAxis type="category" dataKey="regional" tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} width={70} />
               <Tooltip {...tooltipStyle} formatter={(v: number) => formatCurrency(v)} />
-              <Bar dataKey="total" fill="#10b981" radius={[0, 6, 6, 0]} />
+              <Bar dataKey="total" fill="#3b82f6" radius={[0, 6, 6, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
