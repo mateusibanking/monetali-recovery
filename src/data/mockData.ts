@@ -16,6 +16,7 @@ export interface Client {
   parcelas: number;
   situacao: Situacao;
   flags: Flag[];
+  mes_referencia: string;
 }
 
 export interface CollectionEvent {
