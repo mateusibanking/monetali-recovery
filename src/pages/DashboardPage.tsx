@@ -1,22 +1,25 @@
+import { useState } from 'react';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { clients, situacaoLabels, formatCurrency, Situacao } from '@/data/mockData';
+import { clients as allClients, situacaoLabels, formatCurrency, Situacao } from '@/data/mockData';
 import KpiCards from '@/components/KpiCards';
-
-const CHART_PALETTE = ['#0D2C60', '#316AB4', '#D4A843', '#D9D9D9'];
+import MonthSelector from '@/components/MonthSelector';
 
 const COLORS_STATUS: Record<Situacao, string> = {
-  'COBRANÇA OK': '#316AB4',
-  'COBRANÇA EM ANDAMENTO': '#0D2C60',
+  'COBRANÇA OK': '#22c55e',
+  'COBRANÇA EM ANDAMENTO': '#3b82f6',
   'NÃO PAGO': '#ef4444',
   'PARCELADO': '#D4A843',
   'DISTRATO': '#8b5cf6',
 };
 
 const AGING_COLORS = ['#316AB4', '#D4A843', '#ef4444', '#0D2C60'];
-
 const AGING_RANGES = ['0–30', '31–60', '61–90', '90+'];
 
 const DashboardPage = () => {
+  const [selectedMonth, setSelectedMonth] = useState('2026-04');
+
+  const clients = allClients.filter(c => c.mes_referencia === selectedMonth);
+
   const statusData = (Object.keys(situacaoLabels) as Situacao[]).map(s => ({
     name: situacaoLabels[s],
     value: clients.filter(c => c.situacao === s).length,
@@ -43,7 +46,7 @@ const DashboardPage = () => {
   const execData = executivos.map(e => ({
     executivo: e.split(' ')[0],
     valor: clients.filter(c => c.executivo === e).reduce((s, c) => s + c.compensacao, 0),
-  })).sort((a, b) => b.valor - a.valor);
+  })).sort((a, b) => b.valor - a.valor).slice(0, 10);
 
   const tooltipStyle = {
     contentStyle: { background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12, color: '#333' },
@@ -52,8 +55,11 @@ const DashboardPage = () => {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-bold font-display">Dashboard</h2>
-      <KpiCards />
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <h2 className="text-xl font-bold font-display">Dashboard</h2>
+        <MonthSelector selected={selectedMonth} onChange={setSelectedMonth} />
+      </div>
+      <KpiCards clients={clients} />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="glass-card p-5" style={{ minHeight: 400 }}>
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4 font-display">Distribuição por Status</h3>

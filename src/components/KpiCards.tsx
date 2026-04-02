@@ -1,7 +1,14 @@
 import { DollarSign, Users, TrendingUp, AlertTriangle, CreditCard, Smartphone, UserPlus } from 'lucide-react';
-import { clients, formatCurrency } from '@/data/mockData';
+import { Client, formatCurrency } from '@/data/mockData';
 
-const KpiCards = () => {
+interface KpiCardsProps {
+  clients?: Client[];
+}
+
+const KpiCards = ({ clients: clientsProp }: KpiCardsProps) => {
+  // If no clients passed, import all
+  const clients = clientsProp ?? [];
+
   const totalCompensacao = clients.reduce((s, c) => s + c.compensacao, 0);
   const totalBoleto = clients.reduce((s, c) => s + c.boletoVitbank, 0);
   const totalPix = clients.reduce((s, c) => s + c.pixMonetali, 0);
@@ -17,7 +24,7 @@ const KpiCards = () => {
     { label: 'Total Juros', value: formatCurrency(totalJuros), icon: TrendingUp, color: 'text-negotiation' },
     { label: 'Não Pagos', value: naoPagos.toString(), icon: AlertTriangle, color: 'text-legal' },
     { label: 'Crítico (>90d)', value: criticalCount.toString(), icon: Users, color: 'text-overdue' },
-    { label: 'Novos Cadastros', value: novosCadastros.toString(), icon: UserPlus, color: 'text-primary' },
+    { label: 'Clientes', value: novosCadastros.toString(), icon: UserPlus, color: 'text-primary' },
   ];
 
   return (
