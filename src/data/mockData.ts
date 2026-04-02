@@ -1,4 +1,4 @@
-export type Situacao = 'COBRANÇA EM ANDAMENTO' | 'NÃO PAGO' | 'PARCELADO' | 'DISTRATO';
+export type Situacao = 'COBRANÇA OK' | 'COBRANÇA EM ANDAMENTO' | 'NÃO PAGO' | 'PARCELADO' | 'DISTRATO';
 
 export type Flag = 'Prioridade' | 'Juros' | 'Sem Contato' | 'Jurídico' | 'Parcelamento';
 
