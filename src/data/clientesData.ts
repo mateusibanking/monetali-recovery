@@ -107,6 +107,7 @@ function parseClients(raw: string, startId: number): Client[] {
       parcelas: parseInt(parcelas),
       situacao: sit,
       flags,
+      mes_referencia: '2026-04',
     };
   });
 }
