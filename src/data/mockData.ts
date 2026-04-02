@@ -1,6 +1,25 @@
 export type Situacao = 'COBRANÇA OK' | 'COBRANÇA EM ANDAMENTO' | 'NÃO PAGO' | 'PARCELADO' | 'DISTRATO';
 
-export type Flag = 'Prioridade' | 'Juros' | 'Sem Contato' | 'Jurídico' | 'Parcelamento';
+export type Flag = 'Prioridade' | 'Juros' | 'Sem Contato' | 'Jurídico' | 'Parcelamento' | 'Promessa de Pgto' | string;
+
+export type PaymentStatus = 'Pendente' | 'Pago' | 'Parcial' | 'Vencido';
+
+export interface Payment {
+  id: string;
+  valor: number;
+  dataVencimento: string;
+  descricao: string;
+  status: PaymentStatus;
+}
+
+export interface TimelineEvent {
+  id: string;
+  clientId: string;
+  date: string;
+  type: 'status_change' | 'email' | 'payment' | 'flag' | 'phone' | 'meeting' | 'legal' | 'note';
+  description: string;
+  agent: string;
+}
 
 export interface Client {
   id: string;
@@ -115,18 +134,99 @@ export const situacaoColors: Record<Situacao, string> = {
   'DISTRATO': 'status-legal',
 };
 
-export const flagLabels: Record<Flag, string> = {
+export const DEFAULT_FLAGS: Flag[] = ['Prioridade', 'Juros', 'Sem Contato', 'Jurídico', 'Parcelamento', 'Promessa de Pgto'];
+
+// Global custom flags store (shared across clients)
+export const customFlags: Flag[] = [];
+
+export const getFlagLabel = (flag: Flag): string => flag;
+export const getFlagColor = (flag: Flag): string => {
+  const known: Record<string, string> = {
+    Prioridade: 'bg-overdue/20 text-overdue border-overdue/30',
+    Juros: 'bg-negotiation/20 text-negotiation border-negotiation/30',
+    'Sem Contato': 'bg-muted text-muted-foreground border-border',
+    Jurídico: 'bg-legal/20 text-legal border-legal/30',
+    Parcelamento: 'bg-recovered/20 text-recovered border-recovered/30',
+    'Promessa de Pgto': 'bg-partial/20 text-partial border-partial/30',
+  };
+  return known[flag] || 'bg-accent/20 text-accent border-accent/30';
+};
+
+export const flagLabels: Record<string, string> = {
   Prioridade: 'Prioridade',
   Juros: 'Juros',
   'Sem Contato': 'Sem Contato',
   Jurídico: 'Jurídico',
   Parcelamento: 'Parcelamento',
+  'Promessa de Pgto': 'Promessa de Pgto',
 };
 
-export const flagColors: Record<Flag, string> = {
+export const flagColors: Record<string, string> = {
   Prioridade: 'bg-overdue/20 text-overdue border-overdue/30',
   Juros: 'bg-negotiation/20 text-negotiation border-negotiation/30',
   'Sem Contato': 'bg-muted text-muted-foreground border-border',
   Jurídico: 'bg-legal/20 text-legal border-legal/30',
   Parcelamento: 'bg-recovered/20 text-recovered border-recovered/30',
+  'Promessa de Pgto': 'bg-partial/20 text-partial border-partial/30',
 };
+
+// Client payments store (keyed by client id)
+export const clientPayments: Record<string, Payment[]> = {};
+
+// Generate mock payments for each client
+import { clients } from './clientesData';
+clients.forEach(c => {
+  const numPayments = Math.max(1, c.parcelas);
+  const payments: Payment[] = [];
+  const baseVal = c.compensacao / numPayments;
+  for (let i = 0; i < numPayments; i++) {
+    const d = new Date(2026, 3 - i, 15);
+    payments.push({
+      id: `${c.id}-p${i + 1}`,
+      valor: Math.round(baseVal * 100) / 100,
+      dataVencimento: d.toISOString().split('T')[0],
+      descricao: `Parcela ${i + 1} de ${numPayments}`,
+      status: i === 0 && c.situacao === 'COBRANÇA OK' ? 'Pago' : c.diasAtraso > 30 ? 'Vencido' : 'Pendente',
+    });
+  }
+  clientPayments[c.id] = payments;
+});
+
+// Client timeline store
+export const clientTimelines: Record<string, TimelineEvent[]> = {};
+
+// Seed timelines from collectionEvents + generate extras
+collectionEvents.forEach(e => {
+  if (!clientTimelines[e.clientId]) clientTimelines[e.clientId] = [];
+  clientTimelines[e.clientId].push({
+    id: `tl-${e.id}`,
+    clientId: e.clientId,
+    date: e.date + 'T10:00:00',
+    type: e.type as TimelineEvent['type'],
+    description: e.description,
+    agent: e.agent,
+  });
+});
+
+// Add some auto-generated timeline events
+clients.slice(0, 30).forEach(c => {
+  if (!clientTimelines[c.id]) clientTimelines[c.id] = [];
+  clientTimelines[c.id].push({
+    id: `tl-auto-${c.id}-1`,
+    clientId: c.id,
+    date: '2026-04-01T09:00:00',
+    type: 'status_change',
+    description: `Status alterado para ${situacaoLabels[c.situacao]}`,
+    agent: c.executivo || 'Sistema',
+  });
+  if (c.flags.length > 0) {
+    clientTimelines[c.id].push({
+      id: `tl-auto-${c.id}-2`,
+      clientId: c.id,
+      date: '2026-03-28T14:30:00',
+      type: 'flag',
+      description: `Flag "${c.flags[0]}" adicionada`,
+      agent: c.executivo || 'Sistema',
+    });
+  }
+});
