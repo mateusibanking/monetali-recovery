@@ -62,6 +62,7 @@ const RecuperacoesPage = () => {
         </ResponsiveContainer>
       </div>
 
+      {/* Client lists with 3 values */}
       {parcelados.length > 0 && (
         <div>
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Parcelados ({parcelados.length})</h3>
@@ -74,7 +75,10 @@ const RecuperacoesPage = () => {
                   </div>
                   <div>
                     <p className="font-semibold text-sm text-foreground">{client.nome}</p>
-                    <p className="text-xs text-muted-foreground">{client.regional} · {client.executivo} · {formatCurrency(client.compensacao)}</p>
+                    <p className="text-xs text-muted-foreground">{client.regional} · {client.executivo}</p>
+                    <p className="text-xs font-mono text-muted-foreground mt-0.5">
+                      Comp: {formatCurrency(client.compensacao)} · Boleto VB: {formatCurrency(client.boletoVitbank)} · PIX: {formatCurrency(client.pixMonetali)}
+                    </p>
                   </div>
                 </div>
                 <StatusBadge status={client.situacao} />
@@ -95,7 +99,10 @@ const RecuperacoesPage = () => {
                 </div>
                 <div>
                   <p className="font-semibold text-sm text-foreground">{client.nome}</p>
-                  <p className="text-xs text-muted-foreground">{client.regional} · {client.executivo} · {formatCurrency(client.compensacao)}</p>
+                  <p className="text-xs text-muted-foreground">{client.regional} · {client.executivo}</p>
+                  <p className="text-xs font-mono text-muted-foreground mt-0.5">
+                    Comp: {formatCurrency(client.compensacao)} · Boleto VB: {formatCurrency(client.boletoVitbank)} · PIX: {formatCurrency(client.pixMonetali)}
+                  </p>
                 </div>
               </div>
               <StatusBadge status={client.situacao} />

@@ -1,28 +1,34 @@
-import { DollarSign, Users, TrendingUp, AlertTriangle } from 'lucide-react';
+import { DollarSign, Users, TrendingUp, AlertTriangle, CreditCard, Smartphone, UserPlus } from 'lucide-react';
 import { clients, formatCurrency } from '@/data/mockData';
 
 const KpiCards = () => {
   const totalCompensacao = clients.reduce((s, c) => s + c.compensacao, 0);
+  const totalBoleto = clients.reduce((s, c) => s + c.boletoVitbank, 0);
+  const totalPix = clients.reduce((s, c) => s + c.pixMonetali, 0);
   const totalJuros = clients.reduce((s, c) => s + c.juros, 0);
   const naoPagos = clients.filter(c => c.situacao === 'NÃO PAGO').length;
   const criticalCount = clients.filter(c => c.diasAtraso > 90).length;
+  const novosCadastros = clients.length;
 
   const kpis = [
     { label: 'Total Compensação', value: formatCurrency(totalCompensacao), icon: DollarSign, color: 'text-overdue' },
+    { label: 'Total Boleto VitBank', value: formatCurrency(totalBoleto), icon: CreditCard, color: 'text-partial' },
+    { label: 'Total PIX Monetali', value: formatCurrency(totalPix), icon: Smartphone, color: 'text-recovered' },
     { label: 'Total Juros', value: formatCurrency(totalJuros), icon: TrendingUp, color: 'text-negotiation' },
     { label: 'Não Pagos', value: naoPagos.toString(), icon: AlertTriangle, color: 'text-legal' },
-    { label: 'Crítico (>90d)', value: criticalCount.toString(), icon: Users, color: 'text-recovered' },
+    { label: 'Crítico (>90d)', value: criticalCount.toString(), icon: Users, color: 'text-overdue' },
+    { label: 'Novos Cadastros', value: novosCadastros.toString(), icon: UserPlus, color: 'text-primary' },
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
       {kpis.map((kpi) => (
-        <div key={kpi.label} className="glass-card p-5 group hover:border-primary/30 transition-all duration-300">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{kpi.label}</span>
-            <kpi.icon className={`h-4 w-4 ${kpi.color}`} />
+        <div key={kpi.label} className="glass-card p-4 group hover:border-primary/30 transition-all duration-300">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground leading-tight">{kpi.label}</span>
+            <kpi.icon className={`h-4 w-4 ${kpi.color} shrink-0`} />
           </div>
-          <p className={`text-2xl font-bold font-mono ${kpi.color}`}>{kpi.value}</p>
+          <p className={`text-lg font-bold font-mono ${kpi.color}`}>{kpi.value}</p>
         </div>
       ))}
     </div>
