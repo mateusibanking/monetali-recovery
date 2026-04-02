@@ -79,11 +79,13 @@ PS DISTRIBUIDORA LTDA|43713.35|0|32785.01|2051.25|RJ / SP|Wallace Paulino|63|1|C
 TRIO ELETRO ELETRÔNICA CATANDUVA LTDA|43289.2|0|32466.9|2031.35|RJ / SP|Felipe Soares|62|1|COBRANÇA OK`;
 
 function parseClients(raw: string, startId: number): Client[] {
-  return raw.trim().split('\n').map((line, i) => {
-    const [nome, comp, juros, boleto, pix, regional, executivo, dias, parcelas, situacao] = line.split('|');
+  return raw.trim().split('\n').filter(l => l.trim()).map((line, i) => {
+    const parts = line.split('|');
+    const [nome, comp, juros, boleto, pix, regional, executivo, dias, parcelas] = parts;
+    const situacao = (parts[9] || '').trim();
     const jurosNum = parseFloat(juros);
     const diasNum = parseInt(dias);
-    const sit = situacao.trim() as Client['situacao'];
+    const sit = (situacao || 'COBRANÇA OK') as Client['situacao'];
     
     const flags: Client['flags'] = [];
     if (jurosNum > 0) flags.push('Juros');
