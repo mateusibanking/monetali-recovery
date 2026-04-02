@@ -67,8 +67,8 @@ const DashboardPage = () => {
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Aging por Faixa de Atraso</h3>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={agingData}>
-              <XAxis dataKey="faixa" tick={{ fill: 'hsl(215, 20%, 55%)', fontSize: 12 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: 'hsl(215, 20%, 55%)', fontSize: 12 }} axisLine={false} tickLine={false} allowDecimals={false} />
+              <XAxis dataKey="faixa" tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} allowDecimals={false} />
               <Tooltip {...tooltipStyle} />
               <Bar dataKey="clientes" radius={[6, 6, 0, 0]}>
                 {agingData.map((_, i) => <Cell key={i} fill={AGING_COLORS[i]} />)}
@@ -80,8 +80,8 @@ const DashboardPage = () => {
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Inadimplência por Regional</h3>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={regionalData} layout="vertical">
-              <XAxis type="number" tick={{ fill: 'hsl(215, 20%, 55%)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `R$${(v / 1_000_000).toFixed(1)}M`} />
-              <YAxis type="category" dataKey="regional" tick={{ fill: 'hsl(215, 20%, 55%)', fontSize: 12 }} axisLine={false} tickLine={false} width={70} />
+              <XAxis type="number" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `R$${(v / 1_000_000).toFixed(1)}M`} />
+              <YAxis type="category" dataKey="regional" tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} width={70} />
               <Tooltip {...tooltipStyle} formatter={(v: number) => formatCurrency(v)} />
               <Bar dataKey="total" fill="hsl(160, 84%, 39%)" radius={[0, 6, 6, 0]} />
             </BarChart>
@@ -91,8 +91,8 @@ const DashboardPage = () => {
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Top Executivos (Carteira)</h3>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={execData} layout="vertical">
-              <XAxis type="number" tick={{ fill: 'hsl(215, 20%, 55%)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `R$${(v / 1_000_000).toFixed(1)}M`} />
-              <YAxis type="category" dataKey="executivo" tick={{ fill: 'hsl(215, 20%, 55%)', fontSize: 12 }} axisLine={false} tickLine={false} width={90} />
+              <XAxis type="number" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `R$${(v / 1_000_000).toFixed(1)}M`} />
+              <YAxis type="category" dataKey="executivo" tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} width={90} />
               <Tooltip {...tooltipStyle} formatter={(v: number) => formatCurrency(v)} />
               <Bar dataKey="valor" fill="hsl(38, 92%, 50%)" radius={[0, 6, 6, 0]} />
             </BarChart>
