@@ -52,11 +52,24 @@ const DashboardPage = () => {
       <h2 className="text-xl font-bold">Dashboard</h2>
       <KpiCards />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="glass-card p-5">
+        <div className="glass-card p-5" style={{ minHeight: 360 }}>
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Distribuição por Status</h3>
-          <ResponsiveContainer width="100%" height={320}>
+          <ResponsiveContainer width="100%" height={300}>
             <PieChart>
-              <Pie data={statusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={120} innerRadius={60} strokeWidth={0} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={{ stroke: '#6b7280' }}>
+              <Pie
+                data={statusData}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                outerRadius={90}
+                innerRadius={45}
+                strokeWidth={2}
+                stroke="#ffffff"
+                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                labelLine={{ stroke: '#6b7280' }}
+                style={{ fontSize: 11 }}
+              >
                 {statusData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
               </Pie>
               <Tooltip {...tooltipStyle} />
@@ -78,23 +91,23 @@ const DashboardPage = () => {
         </div>
         <div className="glass-card p-5">
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Inadimplência por Regional</h3>
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={regionalData} layout="vertical">
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={regionalData} layout="vertical" barSize={24}>
               <XAxis type="number" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `R$${(v / 1_000_000).toFixed(1)}M`} />
               <YAxis type="category" dataKey="regional" tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} width={70} />
               <Tooltip {...tooltipStyle} formatter={(v: number) => formatCurrency(v)} />
-              <Bar dataKey="total" fill="hsl(160, 84%, 39%)" radius={[0, 6, 6, 0]} />
+              <Bar dataKey="total" fill="#10b981" radius={[0, 6, 6, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
         <div className="glass-card p-5">
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Top Executivos (Carteira)</h3>
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={execData} layout="vertical">
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={execData} layout="vertical" barSize={20}>
               <XAxis type="number" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `R$${(v / 1_000_000).toFixed(1)}M`} />
               <YAxis type="category" dataKey="executivo" tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} width={90} />
               <Tooltip {...tooltipStyle} formatter={(v: number) => formatCurrency(v)} />
-              <Bar dataKey="valor" fill="hsl(38, 92%, 50%)" radius={[0, 6, 6, 0]} />
+              <Bar dataKey="valor" fill="#f59e0b" radius={[0, 6, 6, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
