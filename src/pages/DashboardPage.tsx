@@ -3,14 +3,14 @@ import { clients, situacaoLabels, formatCurrency, Situacao } from '@/data/mockDa
 import KpiCards from '@/components/KpiCards';
 
 const COLORS_STATUS: Record<Situacao, string> = {
-  'COBRANÇA OK': 'hsl(160, 84%, 39%)',
-  'NÃO PAGO': 'hsl(0, 72%, 51%)',
-  'PARCELADO': 'hsl(38, 92%, 50%)',
-  'DISTRATO': 'hsl(280, 65%, 55%)',
+  'COBRANÇA OK': '#10b981',
+  'NÃO PAGO': '#ef4444',
+  'PARCELADO': '#f59e0b',
+  'DISTRATO': '#8b5cf6',
 };
 
 const AGING_RANGES = ['0–30', '31–60', '61–90', '90+'];
-const AGING_COLORS = ['#3b82f6', '#f59e0b', '#ef4444', '#7c3aed'];
+const AGING_COLORS = ['#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
 const DashboardPage = () => {
   const statusData = (Object.keys(situacaoLabels) as Situacao[]).map(s => ({
