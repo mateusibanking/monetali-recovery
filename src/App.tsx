@@ -11,6 +11,7 @@ import CadastrarPage from "@/pages/CadastrarPage";
 import AtividadesPage from "@/pages/AtividadesPage";
 import EvolucaoPage from "@/pages/EvolucaoPage";
 import PremissasPage from "@/pages/PremissasPage";
+import ImportacaoPage from "@/pages/ImportacaoPage";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
