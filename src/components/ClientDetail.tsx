@@ -1,6 +1,7 @@
-import { ArrowLeft, Mail, Phone, FileText, Calendar, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, FileText, Calendar, MessageSquare, MapPin, User } from 'lucide-react';
 import { Client, collectionEvents, formatCurrency } from '@/data/mockData';
 import StatusBadge from './StatusBadge';
+import FlagBadge from './FlagBadge';
 
 interface Props {
   client: Client;
@@ -8,19 +9,10 @@ interface Props {
 }
 
 const eventTypeIcons: Record<string, typeof Mail> = {
-  email: Mail,
-  phone: Phone,
-  letter: FileText,
-  meeting: MessageSquare,
-  legal: FileText,
+  email: Mail, phone: Phone, letter: FileText, meeting: MessageSquare, legal: FileText,
 };
-
 const eventTypeLabels: Record<string, string> = {
-  email: 'E-mail',
-  phone: 'Telefone',
-  letter: 'Carta',
-  meeting: 'Reunião',
-  legal: 'Jurídico',
+  email: 'E-mail', phone: 'Telefone', letter: 'Carta', meeting: 'Reunião', legal: 'Jurídico',
 };
 
 const ClientDetail = ({ client, onBack }: Props) => {
@@ -30,55 +22,41 @@ const ClientDetail = ({ client, onBack }: Props) => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <button
-        onClick={onBack}
-        className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-      >
+      <button onClick={onBack} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
         <ArrowLeft className="h-4 w-4" /> Voltar
       </button>
 
       <div className="glass-card p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
-            <h2 className="text-xl font-bold">{client.name}</h2>
-            <p className="text-sm font-mono text-muted-foreground">{client.cpfCnpj}</p>
+            <h2 className="text-xl font-bold">{client.nome}</h2>
+            <p className="text-sm font-mono text-muted-foreground">{client.cnpj}</p>
           </div>
-          <StatusBadge status={client.status} />
+          <div className="flex items-center gap-2 flex-wrap">
+            <StatusBadge status={client.situacao} />
+            {client.flags.map(f => <FlagBadge key={f} flag={f} />)}
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
           {[
-            { label: 'Valor Devido', value: formatCurrency(client.totalOwed), mono: true },
-            { label: 'Dias em Atraso', value: `${client.daysOverdue} dias`, mono: true },
-            { label: 'Comissões Pendentes', value: client.commissionsOverdue.toString(), mono: true },
-            { label: 'Vencimento Original', value: new Date(client.originalDueDate).toLocaleDateString('pt-BR') },
+            { label: 'Compensação', value: formatCurrency(client.compensacao) },
+            { label: 'Juros', value: formatCurrency(client.juros) },
+            { label: 'Boleto VitBank', value: formatCurrency(client.boletoVitbank) },
+            { label: 'PIX Monetali', value: formatCurrency(client.pixMonetali) },
+            { label: 'Dias em Atraso', value: `${client.diasAtraso} dias` },
+            { label: 'Parcelas', value: client.parcelas.toString() },
+            { label: 'Regional', value: client.regional },
+            { label: 'Executivo', value: client.executivo },
           ].map(item => (
             <div key={item.label} className="bg-secondary/30 rounded-lg p-3">
               <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">{item.label}</p>
-              <p className={`text-lg font-semibold ${item.mono ? 'font-mono' : ''}`}>{item.value}</p>
+              <p className="text-lg font-semibold font-mono">{item.value}</p>
             </div>
           ))}
         </div>
-
-        <div className="mt-4 flex flex-col sm:flex-row gap-3">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Mail className="h-4 w-4" /> {client.email}
-          </div>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Phone className="h-4 w-4" /> {client.phone}
-          </div>
-        </div>
-
-        {client.notes && (
-          <div className="mt-4 p-3 bg-secondary/20 rounded-lg border border-border/30">
-            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Observações</p>
-            <p className="text-sm">{client.notes}</p>
-          </div>
-        )}
       </div>
 
-      {/* Timeline */}
       <div className="glass-card p-6">
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <Calendar className="h-5 w-5 text-primary" /> Histórico de Cobrança
@@ -100,9 +78,7 @@ const ClientDetail = ({ client, onBack }: Props) => {
                   <div className="pb-4">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-sm font-semibold">{eventTypeLabels[event.type]}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(event.date).toLocaleDateString('pt-BR')}
-                      </span>
+                      <span className="text-xs text-muted-foreground">{new Date(event.date).toLocaleDateString('pt-BR')}</span>
                     </div>
                     <p className="text-sm text-muted-foreground">{event.description}</p>
                     <p className="text-xs text-muted-foreground mt-1">Responsável: {event.agent}</p>

@@ -3,7 +3,7 @@ import StatusBadge from '@/components/StatusBadge';
 import { CheckCircle } from 'lucide-react';
 
 const RecuperacoesPage = () => {
-  const recovered = clients.filter(c => c.status === 'recovered');
+  const recovered = clients.filter(c => c.situacao === 'recuperado');
 
   return (
     <div className="space-y-6">
@@ -19,15 +19,13 @@ const RecuperacoesPage = () => {
                   <CheckCircle className="h-5 w-5 text-recovered" />
                 </div>
                 <div>
-                  <p className="font-semibold">{client.name}</p>
-                  <p className="text-xs font-mono text-muted-foreground">{client.cpfCnpj}</p>
+                  <p className="font-semibold">{client.nome}</p>
+                  <p className="text-xs font-mono text-muted-foreground">{client.cnpj}</p>
                 </div>
               </div>
               <div className="flex items-center gap-4">
-                <p className="text-sm text-muted-foreground">
-                  Último contato: {new Date(client.lastContact).toLocaleDateString('pt-BR')}
-                </p>
-                <StatusBadge status={client.status} />
+                <p className="text-sm text-muted-foreground">{client.regional} · {client.executivo}</p>
+                <StatusBadge status={client.situacao} />
               </div>
             </div>
           ))}
