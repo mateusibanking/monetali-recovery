@@ -3,14 +3,14 @@ import { clients, situacaoLabels, formatCurrency, Situacao } from '@/data/mockDa
 import KpiCards from '@/components/KpiCards';
 
 const COLORS_STATUS: Record<Situacao, string> = {
-  'COBRANÇA OK': 'hsl(160, 84%, 39%)',
-  'NÃO PAGO': 'hsl(0, 72%, 51%)',
-  'PARCELADO': 'hsl(38, 92%, 50%)',
-  'DISTRATO': 'hsl(280, 65%, 55%)',
+  'COBRANÇA OK': '#10b981',
+  'NÃO PAGO': '#ef4444',
+  'PARCELADO': '#f59e0b',
+  'DISTRATO': '#8b5cf6',
 };
 
 const AGING_RANGES = ['0–30', '31–60', '61–90', '90+'];
-const AGING_COLORS = ['#3b82f6', '#f59e0b', '#ef4444', '#7c3aed'];
+const AGING_COLORS = ['#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
 const DashboardPage = () => {
   const statusData = (Object.keys(situacaoLabels) as Situacao[]).map(s => ({
@@ -54,9 +54,9 @@ const DashboardPage = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="glass-card p-5">
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Distribuição por Status</h3>
-          <ResponsiveContainer width="100%" height={260}>
+          <ResponsiveContainer width="100%" height={320}>
             <PieChart>
-              <Pie data={statusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} innerRadius={50} strokeWidth={0} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+              <Pie data={statusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={120} innerRadius={60} strokeWidth={0} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={{ stroke: '#6b7280' }}>
                 {statusData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
               </Pie>
               <Tooltip {...tooltipStyle} />
@@ -65,8 +65,8 @@ const DashboardPage = () => {
         </div>
         <div className="glass-card p-5">
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Aging por Faixa de Atraso</h3>
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={agingData}>
+          <ResponsiveContainer width="100%" height={320}>
+            <BarChart data={agingData} barSize={40}>
               <XAxis dataKey="faixa" tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} allowDecimals={false} />
               <Tooltip {...tooltipStyle} />
