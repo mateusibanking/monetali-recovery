@@ -5,7 +5,8 @@ import BottomNav from '@/components/BottomNav';
 const AppLayout = () => (
   <div className="flex min-h-screen w-full bg-background">
     <AppSidebar />
-    <main className="flex-1 p-4 sm:p-6 pb-20 md:pb-6 overflow-auto">
+    {/* Offset for fixed sidebar on md+ */}
+    <main className="flex-1 p-4 sm:p-6 pb-20 md:pb-6 md:ml-60 overflow-auto">
       <Outlet />
     </main>
     <BottomNav />

@@ -1,5 +1,6 @@
 import { LayoutDashboard, AlertCircle, CheckCircle2, UserPlus, ClipboardList, TrendingUp } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
+import MonetaliLogo from '@/components/MonetaliLogo';
 
 const navItems = [
   { title: 'Dashboard', url: '/', icon: LayoutDashboard },
@@ -12,10 +13,10 @@ const navItems = [
 
 const AppSidebar = () => {
   return (
-    <aside className="hidden md:flex flex-col w-60 bg-sidebar text-sidebar-foreground min-h-screen shrink-0">
-      <div className="p-5 border-b border-sidebar-border">
-        <h1 className="text-lg font-logo text-sidebar-foreground tracking-wide">monetali</h1>
-        <p className="text-xs text-[hsl(var(--sidebar-muted))] mt-0.5">Controle de Inadimplência</p>
+    <aside className="hidden md:flex flex-col w-60 bg-sidebar text-sidebar-foreground min-h-screen shrink-0 fixed top-0 left-0 h-screen overflow-y-auto z-40">
+      <div className="p-5 border-b border-sidebar-border flex flex-col items-center">
+        <MonetaliLogo />
+        <p className="text-[10px] text-[hsl(var(--sidebar-muted))] mt-2 tracking-wider uppercase">Controle de Inadimplência</p>
       </div>
 
       <nav className="flex-1 p-3 space-y-1">
