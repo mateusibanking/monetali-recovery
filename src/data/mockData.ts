@@ -107,6 +107,7 @@ export const situacaoLabels: Record<Situacao, string> = {
 };
 
 export const situacaoColors: Record<Situacao, string> = {
+  'COBRANÇA OK': 'status-partial',
   'COBRANÇA EM ANDAMENTO': 'status-partial',
   'NÃO PAGO': 'status-overdue',
   'PARCELADO': 'status-negotiation',

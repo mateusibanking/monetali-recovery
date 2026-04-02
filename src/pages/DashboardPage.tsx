@@ -3,6 +3,7 @@ import { clients, situacaoLabels, formatCurrency, Situacao } from '@/data/mockDa
 import KpiCards from '@/components/KpiCards';
 
 const COLORS_STATUS: Record<Situacao, string> = {
+  'COBRANÇA OK': '#22c55e',
   'COBRANÇA EM ANDAMENTO': '#3b82f6',
   'NÃO PAGO': '#ef4444',
   'PARCELADO': '#f59e0b',
