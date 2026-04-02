@@ -1,4 +1,4 @@
-import { LayoutDashboard, AlertCircle, CheckCircle2, UserPlus, ClipboardList, TrendingUp } from 'lucide-react';
+import { LayoutDashboard, AlertCircle, CheckCircle2, UserPlus, ClipboardList, TrendingUp, Settings } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import MonetaliLogo from '@/components/MonetaliLogo';
 
@@ -9,6 +9,7 @@ const navItems = [
   { title: 'Evolução', url: '/evolucao', icon: TrendingUp },
   { title: 'Atividades', url: '/atividades', icon: ClipboardList },
   { title: 'Cadastrar', url: '/cadastrar', icon: UserPlus },
+  { title: 'Premissas', url: '/premissas', icon: Settings },
 ];
 
 const AppSidebar = () => {
