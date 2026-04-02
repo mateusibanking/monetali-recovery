@@ -7,7 +7,7 @@ const CadastrarPage = () => {
   const [form, setForm] = useState({
     nome: '', cnpj: '', regional: '', executivo: '',
     compensacao: '', juros: '', boletoVitbank: '', pixMonetali: '',
-    diasAtraso: '', parcelas: '', situacao: 'COBRANÇA OK' as Situacao,
+    diasAtraso: '', parcelas: '', situacao: 'COBRANÇA EM ANDAMENTO' as Situacao,
   });
 
   const handleSubmit = (e: React.FormEvent) => {
