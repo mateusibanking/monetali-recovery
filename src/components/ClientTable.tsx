@@ -11,12 +11,14 @@ interface Props {
 const allFlags: Flag[] = ['Prioridade', 'Juros', 'Sem Contato', 'Jurídico', 'Parcelamento'];
 const allSituacoes: Situacao[] = Object.keys(situacaoLabels) as Situacao[];
 
-type ColumnKey = 'cliente' | 'regional' | 'executivo' | 'compensacao' | 'dias' | 'situacao' | 'flags';
+type ColumnKey = 'cliente' | 'regional' | 'executivo' | 'compensacao' | 'boletoVB' | 'pixMon' | 'dias' | 'situacao' | 'flags';
 const columnLabels: Record<ColumnKey, string> = {
   cliente: 'Cliente',
   regional: 'Regional',
   executivo: 'Executivo',
   compensacao: 'Compensação',
+  boletoVB: 'Boleto VB',
+  pixMon: 'PIX Mon',
   dias: 'Dias',
   situacao: 'Situação',
   flags: 'Flags',
@@ -29,13 +31,11 @@ const ClientTable = ({ onSelectClient }: Props) => {
   const [columnsOpen, setColumnsOpen] = useState(false);
   const columnsRef = useRef<HTMLDivElement>(null);
 
-  // Inline editing state
   const [editingCell, setEditingCell] = useState<{ clientId: string; field: string } | null>(null);
   const [editValue, setEditValue] = useState('');
   const [flagDropdown, setFlagDropdown] = useState<string | null>(null);
   const [statusDropdown, setStatusDropdown] = useState<string | null>(null);
 
-  // Client IDs with no activity
   const clientIdsWithActivity = new Set(collectionEvents.map(e => e.clientId));
 
   useEffect(() => {
@@ -69,12 +69,9 @@ const ClientTable = ({ onSelectClient }: Props) => {
   const commitEdit = (client: Client) => {
     if (!editingCell) return;
     const val = editValue.trim();
-    if (editingCell.field === 'compensacao') {
-      const num = parseFloat(val.replace(/[^\d.,]/g, '').replace(',', '.'));
-      if (!isNaN(num)) (client as any).compensacao = num;
-    } else if (editingCell.field === 'diasAtraso') {
-      const num = parseInt(val);
-      if (!isNaN(num)) (client as any).diasAtraso = num;
+    const num = parseFloat(val.replace(/[^\d.,]/g, '').replace(',', '.'));
+    if (!isNaN(num)) {
+      (client as any)[editingCell.field] = editingCell.field === 'diasAtraso' ? parseInt(val) : num;
     }
     setEditingCell(null);
   };
@@ -83,7 +80,7 @@ const ClientTable = ({ onSelectClient }: Props) => {
     const idx = client.flags.indexOf(flag);
     if (idx >= 0) client.flags.splice(idx, 1);
     else client.flags.push(flag);
-    setFlagDropdown(prev => prev); // force re-render trick
+    setFlagDropdown(prev => prev);
   };
 
   const changeStatus = (client: Client, status: Situacao) => {
@@ -92,6 +89,23 @@ const ClientTable = ({ onSelectClient }: Props) => {
   };
 
   const show = (col: ColumnKey) => visibleColumns.has(col);
+
+  const renderEditableNum = (client: Client, field: string, value: number, isCurrency = true, extraClass = '') => {
+    if (editingCell?.clientId === client.id && editingCell.field === field) {
+      return (
+        <input
+          autoFocus
+          value={editValue}
+          onChange={e => setEditValue(e.target.value)}
+          onBlur={() => commitEdit(client)}
+          onKeyDown={e => { if (e.key === 'Enter') commitEdit(client); if (e.key === 'Escape') setEditingCell(null); }}
+          className="w-28 px-1 py-0.5 border border-primary rounded text-sm font-mono bg-background"
+          onClick={e => e.stopPropagation()}
+        />
+      );
+    }
+    return <span className={extraClass}>{isCurrency ? formatCurrency(value) : `${value}d`}</span>;
+  };
 
   return (
     <div className="glass-card overflow-hidden">
@@ -118,8 +132,6 @@ const ClientTable = ({ onSelectClient }: Props) => {
               <option key={s} value={s}>{situacaoLabels[s]}</option>
             ))}
           </select>
-
-          {/* Column visibility toggle */}
           <div className="relative" ref={columnsRef}>
             <button
               onClick={() => setColumnsOpen(!columnsOpen)}
@@ -131,12 +143,7 @@ const ClientTable = ({ onSelectClient }: Props) => {
               <div className="absolute right-0 top-full mt-1 z-50 bg-popover border border-border rounded-lg shadow-lg p-2 min-w-[180px]">
                 {(Object.keys(columnLabels) as ColumnKey[]).map(col => (
                   <label key={col} className="flex items-center gap-2 px-2 py-1.5 text-sm cursor-pointer hover:bg-accent rounded">
-                    <input
-                      type="checkbox"
-                      checked={visibleColumns.has(col)}
-                      onChange={() => toggleColumn(col)}
-                      className="rounded border-border"
-                    />
+                    <input type="checkbox" checked={visibleColumns.has(col)} onChange={() => toggleColumn(col)} className="rounded border-border" />
                     {columnLabels[col]}
                   </label>
                 ))}
@@ -154,6 +161,8 @@ const ClientTable = ({ onSelectClient }: Props) => {
               {show('regional') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider hidden lg:table-cell">Regional</th>}
               {show('executivo') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider hidden md:table-cell">Executivo</th>}
               {show('compensacao') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Compensação</th>}
+              {show('boletoVB') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider hidden md:table-cell">Boleto VB</th>}
+              {show('pixMon') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider hidden md:table-cell">PIX Mon</th>}
               {show('dias') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider hidden sm:table-cell">Dias</th>}
               {show('situacao') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Situação</th>}
               {show('flags') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider hidden xl:table-cell">Flags</th>}
@@ -164,10 +173,7 @@ const ClientTable = ({ onSelectClient }: Props) => {
             {filtered.map((client) => {
               const hasActivity = clientIdsWithActivity.has(client.id);
               return (
-                <tr
-                  key={client.id}
-                  className="border-b border-border/30 hover:bg-accent/50 cursor-pointer transition-colors"
-                >
+                <tr key={client.id} className="border-b border-border/30 hover:bg-accent/50 cursor-pointer transition-colors">
                   {show('cliente') && (
                     <td className="px-4 py-3" onClick={() => onSelectClient(client)}>
                       <div className="flex items-center gap-1.5">
@@ -183,35 +189,23 @@ const ClientTable = ({ onSelectClient }: Props) => {
                   {show('executivo') && <td className="px-4 py-3 text-muted-foreground hidden md:table-cell" onClick={() => onSelectClient(client)}>{client.executivo}</td>}
                   {show('compensacao') && (
                     <td className="px-4 py-3 font-mono font-semibold" onClick={(e) => { e.stopPropagation(); startEdit(client.id, 'compensacao', client.compensacao.toString()); }}>
-                      {editingCell?.clientId === client.id && editingCell.field === 'compensacao' ? (
-                        <input
-                          autoFocus
-                          value={editValue}
-                          onChange={e => setEditValue(e.target.value)}
-                          onBlur={() => commitEdit(client)}
-                          onKeyDown={e => { if (e.key === 'Enter') commitEdit(client); if (e.key === 'Escape') setEditingCell(null); }}
-                          className="w-28 px-1 py-0.5 border border-primary rounded text-sm font-mono bg-background"
-                          onClick={e => e.stopPropagation()}
-                        />
-                      ) : formatCurrency(client.compensacao)}
+                      {renderEditableNum(client, 'compensacao', client.compensacao)}
+                    </td>
+                  )}
+                  {show('boletoVB') && (
+                    <td className="px-4 py-3 font-mono text-sm hidden md:table-cell" onClick={(e) => { e.stopPropagation(); startEdit(client.id, 'boletoVitbank', client.boletoVitbank.toString()); }}>
+                      {renderEditableNum(client, 'boletoVitbank', client.boletoVitbank)}
+                    </td>
+                  )}
+                  {show('pixMon') && (
+                    <td className="px-4 py-3 font-mono text-sm hidden md:table-cell" onClick={(e) => { e.stopPropagation(); startEdit(client.id, 'pixMonetali', client.pixMonetali.toString()); }}>
+                      {renderEditableNum(client, 'pixMonetali', client.pixMonetali)}
                     </td>
                   )}
                   {show('dias') && (
                     <td className="px-4 py-3 hidden sm:table-cell" onClick={(e) => { e.stopPropagation(); startEdit(client.id, 'diasAtraso', client.diasAtraso.toString()); }}>
-                      {editingCell?.clientId === client.id && editingCell.field === 'diasAtraso' ? (
-                        <input
-                          autoFocus
-                          value={editValue}
-                          onChange={e => setEditValue(e.target.value)}
-                          onBlur={() => commitEdit(client)}
-                          onKeyDown={e => { if (e.key === 'Enter') commitEdit(client); if (e.key === 'Escape') setEditingCell(null); }}
-                          className="w-16 px-1 py-0.5 border border-primary rounded text-sm bg-background"
-                          onClick={e => e.stopPropagation()}
-                        />
-                      ) : (
-                        <span className={client.diasAtraso > 60 ? 'text-overdue font-semibold' : client.diasAtraso > 30 ? 'text-negotiation' : 'text-muted-foreground'}>
-                          {client.diasAtraso}d
-                        </span>
+                      {renderEditableNum(client, 'diasAtraso', client.diasAtraso, false,
+                        client.diasAtraso > 60 ? 'text-overdue font-semibold' : client.diasAtraso > 30 ? 'text-negotiation' : 'text-muted-foreground'
                       )}
                     </td>
                   )}
@@ -223,11 +217,7 @@ const ClientTable = ({ onSelectClient }: Props) => {
                       {statusDropdown === client.id && (
                         <div className="absolute z-50 top-full left-4 mt-1 bg-popover border border-border rounded-lg shadow-lg p-1 min-w-[180px]">
                           {allSituacoes.map(s => (
-                            <button
-                              key={s}
-                              onClick={(e) => { e.stopPropagation(); changeStatus(client, s); }}
-                              className="w-full text-left px-3 py-1.5 text-sm hover:bg-accent rounded flex items-center gap-2"
-                            >
+                            <button key={s} onClick={(e) => { e.stopPropagation(); changeStatus(client, s); }} className="w-full text-left px-3 py-1.5 text-sm hover:bg-accent rounded flex items-center gap-2">
                               <StatusBadge status={s} />
                             </button>
                           ))}
@@ -243,17 +233,8 @@ const ClientTable = ({ onSelectClient }: Props) => {
                       {flagDropdown === client.id && (
                         <div className="absolute z-50 top-full left-4 mt-1 bg-popover border border-border rounded-lg shadow-lg p-1 min-w-[160px]">
                           {allFlags.map(f => (
-                            <label
-                              key={f}
-                              onClick={e => e.stopPropagation()}
-                              className="flex items-center gap-2 px-3 py-1.5 text-sm cursor-pointer hover:bg-accent rounded"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={client.flags.includes(f)}
-                                onChange={() => toggleFlag(client, f)}
-                                className="rounded border-border"
-                              />
+                            <label key={f} onClick={e => e.stopPropagation()} className="flex items-center gap-2 px-3 py-1.5 text-sm cursor-pointer hover:bg-accent rounded">
+                              <input type="checkbox" checked={client.flags.includes(f)} onChange={() => toggleFlag(client, f)} className="rounded border-border" />
                               {f}
                             </label>
                           ))}
