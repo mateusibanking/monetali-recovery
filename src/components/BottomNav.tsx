@@ -1,0 +1,28 @@
+import { LayoutDashboard, AlertCircle, CheckCircle2, UserPlus } from 'lucide-react';
+import { NavLink } from '@/components/NavLink';
+
+const navItems = [
+  { title: 'Dashboard', url: '/', icon: LayoutDashboard },
+  { title: 'Inadimplentes', url: '/inadimplentes', icon: AlertCircle },
+  { title: 'Recuperações', url: '/recuperacoes', icon: CheckCircle2 },
+  { title: 'Cadastrar', url: '/cadastrar', icon: UserPlus },
+];
+
+const BottomNav = () => (
+  <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card/90 backdrop-blur-xl border-t border-border/50 flex items-center justify-around py-2 px-1">
+    {navItems.map(item => (
+      <NavLink
+        key={item.url}
+        to={item.url}
+        end={item.url === '/'}
+        className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-[10px] text-muted-foreground transition-colors"
+        activeClassName="text-primary"
+      >
+        <item.icon className="h-5 w-5" />
+        <span>{item.title}</span>
+      </NavLink>
+    ))}
+  </nav>
+);
+
+export default BottomNav;
