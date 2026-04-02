@@ -13,7 +13,7 @@ const CadastrarPage = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     toast.success('Cliente cadastrado com sucesso!');
-    setForm({ nome: '', cnpj: '', regional: '', executivo: '', compensacao: '', juros: '', boletoVitbank: '', pixMonetali: '', diasAtraso: '', parcelas: '', situacao: 'COBRANÇA OK' });
+    setForm({ nome: '', cnpj: '', regional: '', executivo: '', compensacao: '', juros: '', boletoVitbank: '', pixMonetali: '', diasAtraso: '', parcelas: '', situacao: 'COBRANÇA EM ANDAMENTO' });
   };
 
   const inputClass = "w-full bg-secondary/50 border border-border/50 rounded-lg text-sm px-3 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50";

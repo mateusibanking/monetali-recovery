@@ -171,7 +171,7 @@ const ClientTable = ({ onSelectClient }: Props) => {
                   {show('cliente') && (
                     <td className="px-4 py-3" onClick={() => onSelectClient(client)}>
                       <div className="flex items-center gap-1.5">
-                        {!hasActivity && <AlertCircle className="h-4 w-4 text-destructive shrink-0" title="Sem atividade registrada" />}
+                        {!hasActivity && <AlertCircle className="h-4 w-4 text-destructive shrink-0" />}
                         <div>
                           <p className="font-medium">{client.nome}</p>
                           <p className="text-xs font-mono text-muted-foreground">{client.cnpj}</p>
