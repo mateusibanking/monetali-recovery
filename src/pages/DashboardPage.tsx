@@ -65,8 +65,8 @@ const DashboardPage = () => {
         </div>
         <div className="glass-card p-5">
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Aging por Faixa de Atraso</h3>
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={agingData}>
+          <ResponsiveContainer width="100%" height={320}>
+            <BarChart data={agingData} barSize={40}>
               <XAxis dataKey="faixa" tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} allowDecimals={false} />
               <Tooltip {...tooltipStyle} />
