@@ -2,17 +2,16 @@ import { DollarSign, Users, TrendingUp, AlertTriangle } from 'lucide-react';
 import { clients, formatCurrency } from '@/data/mockData';
 
 const KpiCards = () => {
-  const totalOverdue = clients.filter(c => c.situacao !== 'recuperado').reduce((s, c) => s + c.compensacao + c.juros, 0);
-  const totalClients = clients.filter(c => c.situacao !== 'recuperado').length;
-  const recoveredCount = clients.filter(c => c.situacao === 'recuperado').length;
-  const recoveryRate = Math.round((recoveredCount / clients.length) * 100);
-  const criticalCount = clients.filter(c => c.diasAtraso > 60).length;
+  const totalCompensacao = clients.reduce((s, c) => s + c.compensacao, 0);
+  const totalJuros = clients.reduce((s, c) => s + c.juros, 0);
+  const naoPagos = clients.filter(c => c.situacao === 'NÃO PAGO').length;
+  const criticalCount = clients.filter(c => c.diasAtraso > 90).length;
 
   const kpis = [
-    { label: 'Total Inadimplente', value: formatCurrency(totalOverdue), icon: DollarSign, color: 'text-overdue' },
-    { label: 'Clientes em Atraso', value: totalClients.toString(), icon: Users, color: 'text-negotiation' },
-    { label: 'Taxa de Recuperação', value: `${recoveryRate}%`, icon: TrendingUp, color: 'text-recovered' },
-    { label: 'Situação Crítica (>60d)', value: criticalCount.toString(), icon: AlertTriangle, color: 'text-legal' },
+    { label: 'Total Compensação', value: formatCurrency(totalCompensacao), icon: DollarSign, color: 'text-overdue' },
+    { label: 'Total Juros', value: formatCurrency(totalJuros), icon: TrendingUp, color: 'text-negotiation' },
+    { label: 'Não Pagos', value: naoPagos.toString(), icon: AlertTriangle, color: 'text-legal' },
+    { label: 'Crítico (>90d)', value: criticalCount.toString(), icon: Users, color: 'text-recovered' },
   ];
 
   return (

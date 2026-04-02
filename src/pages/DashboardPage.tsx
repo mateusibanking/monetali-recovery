@@ -1,26 +1,24 @@
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { clients, situacaoLabels, formatCurrency, Situacao } from '@/data/mockData';
+import KpiCards from '@/components/KpiCards';
 
 const COLORS_STATUS: Record<Situacao, string> = {
-  em_atraso: 'hsl(0, 72%, 51%)',
-  negociacao: 'hsl(38, 92%, 50%)',
-  juridico: 'hsl(280, 65%, 55%)',
-  recuperado: 'hsl(160, 84%, 39%)',
-  parcial: 'hsl(200, 80%, 50%)',
+  'COBRANÇA OK': 'hsl(160, 84%, 39%)',
+  'NÃO PAGO': 'hsl(0, 72%, 51%)',
+  'PARCELADO': 'hsl(38, 92%, 50%)',
+  'DISTRATO': 'hsl(280, 65%, 55%)',
 };
 
 const AGING_RANGES = ['0–30', '31–60', '61–90', '90+'];
 const AGING_COLORS = ['#3b82f6', '#f59e0b', '#ef4444', '#7c3aed'];
 
 const DashboardPage = () => {
-  // Pie: por status
   const statusData = (Object.keys(situacaoLabels) as Situacao[]).map(s => ({
     name: situacaoLabels[s],
     value: clients.filter(c => c.situacao === s).length,
     color: COLORS_STATUS[s],
   })).filter(d => d.value > 0);
 
-  // Aging por faixa
   const agingData = AGING_RANGES.map((label, i) => {
     const count = clients.filter(c => {
       if (i === 0) return c.diasAtraso >= 0 && c.diasAtraso <= 30;
@@ -31,19 +29,16 @@ const DashboardPage = () => {
     return { faixa: label, clientes: count };
   });
 
-  // Barras por regional
   const regionais = [...new Set(clients.map(c => c.regional))];
   const regionalData = regionais.map(r => ({
     regional: r,
-    total: clients.filter(c => c.regional === r && c.situacao !== 'recuperado').reduce((s, c) => s + c.compensacao, 0),
+    total: clients.filter(c => c.regional === r).reduce((s, c) => s + c.compensacao, 0),
   })).sort((a, b) => b.total - a.total);
 
-  // Top executivos
   const executivos = [...new Set(clients.map(c => c.executivo))];
   const execData = executivos.map(e => ({
-    executivo: e.split(' ').slice(0, 2).join(' '),
-    clientes: clients.filter(c => c.executivo === e && c.situacao !== 'recuperado').length,
-    valor: clients.filter(c => c.executivo === e && c.situacao !== 'recuperado').reduce((s, c) => s + c.compensacao, 0),
+    executivo: e.split(' ')[0],
+    valor: clients.filter(c => c.executivo === e).reduce((s, c) => s + c.compensacao, 0),
   })).sort((a, b) => b.valor - a.valor);
 
   const tooltipStyle = {
@@ -54,9 +49,8 @@ const DashboardPage = () => {
   return (
     <div className="space-y-6">
       <h2 className="text-xl font-bold">Dashboard</h2>
-
+      <KpiCards />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Pie - Status */}
         <div className="glass-card p-5">
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Distribuição por Status</h3>
           <ResponsiveContainer width="100%" height={260}>
@@ -68,8 +62,6 @@ const DashboardPage = () => {
             </PieChart>
           </ResponsiveContainer>
         </div>
-
-        {/* Aging */}
         <div className="glass-card p-5">
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Aging por Faixa de Atraso</h3>
           <ResponsiveContainer width="100%" height={260}>
@@ -83,27 +75,23 @@ const DashboardPage = () => {
             </BarChart>
           </ResponsiveContainer>
         </div>
-
-        {/* Regional */}
         <div className="glass-card p-5">
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Inadimplência por Regional</h3>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={regionalData} layout="vertical">
-              <XAxis type="number" tick={{ fill: 'hsl(215, 20%, 55%)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `R$${(v / 1000).toFixed(0)}k`} />
-              <YAxis type="category" dataKey="regional" tick={{ fill: 'hsl(215, 20%, 55%)', fontSize: 12 }} axisLine={false} tickLine={false} width={90} />
+              <XAxis type="number" tick={{ fill: 'hsl(215, 20%, 55%)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `R$${(v / 1_000_000).toFixed(1)}M`} />
+              <YAxis type="category" dataKey="regional" tick={{ fill: 'hsl(215, 20%, 55%)', fontSize: 12 }} axisLine={false} tickLine={false} width={70} />
               <Tooltip {...tooltipStyle} formatter={(v: number) => formatCurrency(v)} />
               <Bar dataKey="total" fill="hsl(160, 84%, 39%)" radius={[0, 6, 6, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
-
-        {/* Top Executivos */}
         <div className="glass-card p-5">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Top Executivos (Carteira Inadimplente)</h3>
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Top Executivos (Carteira)</h3>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={execData} layout="vertical">
-              <XAxis type="number" tick={{ fill: 'hsl(215, 20%, 55%)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `R$${(v / 1000).toFixed(0)}k`} />
-              <YAxis type="category" dataKey="executivo" tick={{ fill: 'hsl(215, 20%, 55%)', fontSize: 12 }} axisLine={false} tickLine={false} width={110} />
+              <XAxis type="number" tick={{ fill: 'hsl(215, 20%, 55%)', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `R$${(v / 1_000_000).toFixed(1)}M`} />
+              <YAxis type="category" dataKey="executivo" tick={{ fill: 'hsl(215, 20%, 55%)', fontSize: 12 }} axisLine={false} tickLine={false} width={90} />
               <Tooltip {...tooltipStyle} formatter={(v: number) => formatCurrency(v)} />
               <Bar dataKey="valor" fill="hsl(38, 92%, 50%)" radius={[0, 6, 6, 0]} />
             </BarChart>
