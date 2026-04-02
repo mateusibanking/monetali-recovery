@@ -2,11 +2,11 @@ import { DollarSign, Users, TrendingUp, AlertTriangle } from 'lucide-react';
 import { clients, formatCurrency } from '@/data/mockData';
 
 const KpiCards = () => {
-  const totalOverdue = clients.filter(c => c.status !== 'recovered').reduce((s, c) => s + c.totalOwed, 0);
-  const totalClients = clients.filter(c => c.status !== 'recovered').length;
-  const recoveredCount = clients.filter(c => c.status === 'recovered').length;
+  const totalOverdue = clients.filter(c => c.situacao !== 'recuperado').reduce((s, c) => s + c.compensacao + c.juros, 0);
+  const totalClients = clients.filter(c => c.situacao !== 'recuperado').length;
+  const recoveredCount = clients.filter(c => c.situacao === 'recuperado').length;
   const recoveryRate = Math.round((recoveredCount / clients.length) * 100);
-  const criticalCount = clients.filter(c => c.daysOverdue > 60).length;
+  const criticalCount = clients.filter(c => c.diasAtraso > 60).length;
 
   const kpis = [
     { label: 'Total Inadimplente', value: formatCurrency(totalOverdue), icon: DollarSign, color: 'text-overdue' },

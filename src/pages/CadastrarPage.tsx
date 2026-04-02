@@ -1,19 +1,19 @@
 import { useState } from 'react';
-import { DelinquencyStatus, statusLabels } from '@/data/mockData';
+import { Situacao, situacaoLabels } from '@/data/mockData';
 import { UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 
 const CadastrarPage = () => {
   const [form, setForm] = useState({
-    name: '', cpfCnpj: '', email: '', phone: '',
-    totalOwed: '', daysOverdue: '', status: 'overdue' as DelinquencyStatus,
-    commissionsOverdue: '', originalDueDate: '', notes: '',
+    nome: '', cnpj: '', regional: '', executivo: '',
+    compensacao: '', juros: '', boletoVitbank: '', pixMonetali: '',
+    diasAtraso: '', parcelas: '', situacao: 'em_atraso' as Situacao,
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     toast.success('Cliente cadastrado com sucesso!');
-    setForm({ name: '', cpfCnpj: '', email: '', phone: '', totalOwed: '', daysOverdue: '', status: 'overdue', commissionsOverdue: '', originalDueDate: '', notes: '' });
+    setForm({ nome: '', cnpj: '', regional: '', executivo: '', compensacao: '', juros: '', boletoVitbank: '', pixMonetali: '', diasAtraso: '', parcelas: '', situacao: 'em_atraso' });
   };
 
   const inputClass = "w-full bg-secondary/50 border border-border/50 rounded-lg text-sm px-3 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50";
@@ -32,48 +32,52 @@ const CadastrarPage = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className={labelClass}>Nome / Razão Social</label>
-            <input className={inputClass} placeholder="Nome completo" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required />
+            <input className={inputClass} placeholder="Nome completo" value={form.nome} onChange={e => setForm(f => ({ ...f, nome: e.target.value }))} required />
           </div>
           <div>
-            <label className={labelClass}>CPF / CNPJ</label>
-            <input className={inputClass} placeholder="000.000.000-00" value={form.cpfCnpj} onChange={e => setForm(f => ({ ...f, cpfCnpj: e.target.value }))} required />
+            <label className={labelClass}>CNPJ</label>
+            <input className={inputClass} placeholder="00.000.000/0001-00" value={form.cnpj} onChange={e => setForm(f => ({ ...f, cnpj: e.target.value }))} required />
           </div>
           <div>
-            <label className={labelClass}>E-mail</label>
-            <input type="email" className={inputClass} placeholder="email@exemplo.com" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+            <label className={labelClass}>Regional</label>
+            <input className={inputClass} placeholder="Sudeste" value={form.regional} onChange={e => setForm(f => ({ ...f, regional: e.target.value }))} />
           </div>
           <div>
-            <label className={labelClass}>Telefone</label>
-            <input className={inputClass} placeholder="(00) 90000-0000" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
+            <label className={labelClass}>Executivo</label>
+            <input className={inputClass} placeholder="Nome do executivo" value={form.executivo} onChange={e => setForm(f => ({ ...f, executivo: e.target.value }))} />
           </div>
           <div>
-            <label className={labelClass}>Valor Devido (R$)</label>
-            <input type="number" step="0.01" className={inputClass} placeholder="0,00" value={form.totalOwed} onChange={e => setForm(f => ({ ...f, totalOwed: e.target.value }))} required />
+            <label className={labelClass}>Compensação (R$)</label>
+            <input type="number" step="0.01" className={inputClass} placeholder="0,00" value={form.compensacao} onChange={e => setForm(f => ({ ...f, compensacao: e.target.value }))} required />
+          </div>
+          <div>
+            <label className={labelClass}>Juros (R$)</label>
+            <input type="number" step="0.01" className={inputClass} placeholder="0,00" value={form.juros} onChange={e => setForm(f => ({ ...f, juros: e.target.value }))} />
+          </div>
+          <div>
+            <label className={labelClass}>Boleto VitBank (R$)</label>
+            <input type="number" step="0.01" className={inputClass} placeholder="0,00" value={form.boletoVitbank} onChange={e => setForm(f => ({ ...f, boletoVitbank: e.target.value }))} />
+          </div>
+          <div>
+            <label className={labelClass}>PIX Monetali (R$)</label>
+            <input type="number" step="0.01" className={inputClass} placeholder="0,00" value={form.pixMonetali} onChange={e => setForm(f => ({ ...f, pixMonetali: e.target.value }))} />
           </div>
           <div>
             <label className={labelClass}>Dias em Atraso</label>
-            <input type="number" className={inputClass} placeholder="0" value={form.daysOverdue} onChange={e => setForm(f => ({ ...f, daysOverdue: e.target.value }))} />
+            <input type="number" className={inputClass} placeholder="0" value={form.diasAtraso} onChange={e => setForm(f => ({ ...f, diasAtraso: e.target.value }))} />
           </div>
           <div>
-            <label className={labelClass}>Comissões Pendentes</label>
-            <input type="number" className={inputClass} placeholder="0" value={form.commissionsOverdue} onChange={e => setForm(f => ({ ...f, commissionsOverdue: e.target.value }))} />
+            <label className={labelClass}>Parcelas</label>
+            <input type="number" className={inputClass} placeholder="0" value={form.parcelas} onChange={e => setForm(f => ({ ...f, parcelas: e.target.value }))} />
           </div>
           <div>
-            <label className={labelClass}>Vencimento Original</label>
-            <input type="date" className={inputClass} value={form.originalDueDate} onChange={e => setForm(f => ({ ...f, originalDueDate: e.target.value }))} />
-          </div>
-          <div>
-            <label className={labelClass}>Status</label>
-            <select className={inputClass} value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value as DelinquencyStatus }))}>
-              {(Object.keys(statusLabels) as DelinquencyStatus[]).map(s => (
-                <option key={s} value={s}>{statusLabels[s]}</option>
+            <label className={labelClass}>Situação</label>
+            <select className={inputClass} value={form.situacao} onChange={e => setForm(f => ({ ...f, situacao: e.target.value as Situacao }))}>
+              {(Object.keys(situacaoLabels) as Situacao[]).map(s => (
+                <option key={s} value={s}>{situacaoLabels[s]}</option>
               ))}
             </select>
           </div>
-        </div>
-        <div>
-          <label className={labelClass}>Observações</label>
-          <textarea className={`${inputClass} min-h-[80px]`} placeholder="Notas sobre o cliente..." value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
         </div>
         <button type="submit" className="w-full sm:w-auto px-6 py-2.5 bg-primary text-primary-foreground rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity">
           Cadastrar Cliente
