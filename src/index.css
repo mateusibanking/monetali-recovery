@@ -93,4 +93,8 @@
   .status-recovered {
     @apply bg-[hsl(var(--recovered)/0.15)] text-[hsl(var(--recovered))] border border-[hsl(var(--recovered)/0.3)];
   }
+  
+  .status-partial {
+    @apply bg-[hsl(var(--partial)/0.15)] text-[hsl(var(--partial))] border border-[hsl(var(--partial)/0.3)];
+  }
 }
