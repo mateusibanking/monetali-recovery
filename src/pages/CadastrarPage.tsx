@@ -7,13 +7,13 @@ const CadastrarPage = () => {
   const [form, setForm] = useState({
     nome: '', cnpj: '', regional: '', executivo: '',
     compensacao: '', juros: '', boletoVitbank: '', pixMonetali: '',
-    diasAtraso: '', parcelas: '', situacao: 'em_atraso' as Situacao,
+    diasAtraso: '', parcelas: '', situacao: 'COBRANÇA OK' as Situacao,
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     toast.success('Cliente cadastrado com sucesso!');
-    setForm({ nome: '', cnpj: '', regional: '', executivo: '', compensacao: '', juros: '', boletoVitbank: '', pixMonetali: '', diasAtraso: '', parcelas: '', situacao: 'em_atraso' });
+    setForm({ nome: '', cnpj: '', regional: '', executivo: '', compensacao: '', juros: '', boletoVitbank: '', pixMonetali: '', diasAtraso: '', parcelas: '', situacao: 'COBRANÇA OK' });
   };
 
   const inputClass = "w-full bg-secondary/50 border border-border/50 rounded-lg text-sm px-3 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50";
@@ -36,11 +36,11 @@ const CadastrarPage = () => {
           </div>
           <div>
             <label className={labelClass}>CNPJ</label>
-            <input className={inputClass} placeholder="00.000.000/0001-00" value={form.cnpj} onChange={e => setForm(f => ({ ...f, cnpj: e.target.value }))} required />
+            <input className={inputClass} placeholder="00.000.000/0001-00" value={form.cnpj} onChange={e => setForm(f => ({ ...f, cnpj: e.target.value }))} />
           </div>
           <div>
             <label className={labelClass}>Regional</label>
-            <input className={inputClass} placeholder="Sudeste" value={form.regional} onChange={e => setForm(f => ({ ...f, regional: e.target.value }))} />
+            <input className={inputClass} placeholder="RJ / SP" value={form.regional} onChange={e => setForm(f => ({ ...f, regional: e.target.value }))} />
           </div>
           <div>
             <label className={labelClass}>Executivo</label>

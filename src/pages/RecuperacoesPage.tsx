@@ -1,36 +1,56 @@
-import { clients, formatCurrency } from '@/data/mockData';
+import { clients } from '@/data/mockData';
 import StatusBadge from '@/components/StatusBadge';
 import { CheckCircle } from 'lucide-react';
 
 const RecuperacoesPage = () => {
-  const recovered = clients.filter(c => c.situacao === 'recuperado');
+  const parcelados = clients.filter(c => c.situacao === 'PARCELADO');
+  const cobrancaOk = clients.filter(c => c.situacao === 'COBRANÇA OK');
 
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-bold">Recuperações</h2>
-      {recovered.length === 0 ? (
-        <div className="glass-card p-8 text-center text-muted-foreground">Nenhuma recuperação registrada.</div>
-      ) : (
-        <div className="grid gap-4">
-          {recovered.map(client => (
-            <div key={client.id} className="glass-card p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-[hsl(var(--recovered)/0.15)] flex items-center justify-center shrink-0">
-                  <CheckCircle className="h-5 w-5 text-recovered" />
+      <h2 className="text-xl font-bold">Recuperações & Parcelamentos</h2>
+
+      {parcelados.length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Parcelados</h3>
+          <div className="grid gap-3">
+            {parcelados.map(client => (
+              <div key={client.id} className="glass-card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-[hsl(var(--negotiation)/0.15)] flex items-center justify-center shrink-0">
+                    <CheckCircle className="h-4 w-4 text-negotiation" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm">{client.nome}</p>
+                    <p className="text-xs text-muted-foreground">{client.regional} · {client.executivo}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-semibold">{client.nome}</p>
-                  <p className="text-xs font-mono text-muted-foreground">{client.cnpj}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <p className="text-sm text-muted-foreground">{client.regional} · {client.executivo}</p>
                 <StatusBadge status={client.situacao} />
               </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div>
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Cobrança OK ({cobrancaOk.length})</h3>
+        <div className="grid gap-3">
+          {cobrancaOk.map(client => (
+            <div key={client.id} className="glass-card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-[hsl(var(--recovered)/0.15)] flex items-center justify-center shrink-0">
+                  <CheckCircle className="h-4 w-4 text-recovered" />
+                </div>
+                <div>
+                  <p className="font-semibold text-sm">{client.nome}</p>
+                  <p className="text-xs text-muted-foreground">{client.regional} · {client.executivo}</p>
+                </div>
+              </div>
+              <StatusBadge status={client.situacao} />
             </div>
           ))}
         </div>
-      )}
+      </div>
     </div>
   );
 };
