@@ -1,10 +1,11 @@
-import { LayoutDashboard, AlertCircle, CheckCircle2, UserPlus, ClipboardList } from 'lucide-react';
+import { LayoutDashboard, AlertCircle, CheckCircle2, UserPlus, ClipboardList, TrendingUp } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 
 const navItems = [
   { title: 'Dashboard', url: '/', icon: LayoutDashboard },
   { title: 'Inadimplentes', url: '/inadimplentes', icon: AlertCircle },
   { title: 'Recuperações', url: '/recuperacoes', icon: CheckCircle2 },
+  { title: 'Evolução', url: '/evolucao', icon: TrendingUp },
   { title: 'Atividades', url: '/atividades', icon: ClipboardList },
   { title: 'Cadastrar', url: '/cadastrar', icon: UserPlus },
 ];
@@ -16,10 +17,10 @@ const BottomNav = () => (
         key={item.url}
         to={item.url}
         end={item.url === '/'}
-        className="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg text-[10px] text-muted-foreground transition-colors"
+        className="flex flex-col items-center gap-0.5 px-1.5 py-1.5 rounded-lg text-[9px] text-muted-foreground transition-colors"
         activeClassName="text-primary"
       >
-        <item.icon className="h-5 w-5" />
+        <item.icon className="h-4 w-4" />
         <span>{item.title}</span>
       </NavLink>
     ))}
