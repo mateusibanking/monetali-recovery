@@ -14,7 +14,9 @@ export default {
     },
     extend: {
       fontFamily: {
-        display: ['Inter', 'system-ui', 'sans-serif'],
+        display: ['Montserrat', 'system-ui', 'sans-serif'],
+        body: ['Inter', 'system-ui', 'sans-serif'],
+        logo: ['Arvo', 'serif'],
         mono: ['JetBrains Mono', 'monospace'],
       },
       colors: {
@@ -59,6 +61,7 @@ export default {
           DEFAULT: "hsl(var(--success))",
           foreground: "hsl(var(--success-foreground))",
         },
+        link: "hsl(var(--link))",
         overdue: "hsl(var(--overdue))",
         negotiation: "hsl(var(--negotiation))",
         legal: "hsl(var(--legal))",
@@ -81,20 +84,12 @@ export default {
       },
       keyframes: {
         "accordion-down": {
-          from: {
-            height: "0",
-          },
-          to: {
-            height: "var(--radix-accordion-content-height)",
-          },
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
         },
         "accordion-up": {
-          from: {
-            height: "var(--radix-accordion-content-height)",
-          },
-          to: {
-            height: "0",
-          },
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
         },
       },
       animation: {

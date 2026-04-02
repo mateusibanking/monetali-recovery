@@ -18,7 +18,7 @@ const BottomNav = () => (
         to={item.url}
         end={item.url === '/'}
         className="flex flex-col items-center gap-0.5 px-1.5 py-1.5 rounded-lg text-[9px] text-muted-foreground transition-colors"
-        activeClassName="text-primary"
+        activeClassName="text-accent"
       >
         <item.icon className="h-4 w-4" />
         <span>{item.title}</span>

@@ -2,16 +2,19 @@ import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveCo
 import { clients, situacaoLabels, formatCurrency, Situacao } from '@/data/mockData';
 import KpiCards from '@/components/KpiCards';
 
+const CHART_PALETTE = ['#0D2C60', '#316AB4', '#D4A843', '#D9D9D9'];
+
 const COLORS_STATUS: Record<Situacao, string> = {
-  'COBRANÇA OK': '#22c55e',
-  'COBRANÇA EM ANDAMENTO': '#3b82f6',
+  'COBRANÇA OK': '#316AB4',
+  'COBRANÇA EM ANDAMENTO': '#0D2C60',
   'NÃO PAGO': '#ef4444',
-  'PARCELADO': '#f59e0b',
+  'PARCELADO': '#D4A843',
   'DISTRATO': '#8b5cf6',
 };
 
+const AGING_COLORS = ['#316AB4', '#D4A843', '#ef4444', '#0D2C60'];
+
 const AGING_RANGES = ['0–30', '31–60', '61–90', '90+'];
-const AGING_COLORS = ['#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
 const DashboardPage = () => {
   const statusData = (Object.keys(situacaoLabels) as Situacao[]).map(s => ({
@@ -43,43 +46,29 @@ const DashboardPage = () => {
   })).sort((a, b) => b.valor - a.valor);
 
   const tooltipStyle = {
-    contentStyle: { background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12, color: '#1a1a1a' },
+    contentStyle: { background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12, color: '#333' },
     labelStyle: { color: '#6b7280' },
   };
 
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-bold">Dashboard</h2>
+      <h2 className="text-xl font-bold font-display">Dashboard</h2>
       <KpiCards />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="glass-card p-5" style={{ minHeight: 400 }}>
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Distribuição por Status</h3>
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4 font-display">Distribuição por Status</h3>
           <ResponsiveContainer width="100%" height={340}>
             <PieChart>
-              <Pie
-                data={statusData}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="45%"
-                outerRadius={90}
-                innerRadius={45}
-                strokeWidth={2}
-                stroke="#ffffff"
-              >
+              <Pie data={statusData} dataKey="value" nameKey="name" cx="50%" cy="45%" outerRadius={90} innerRadius={45} strokeWidth={2} stroke="#ffffff">
                 {statusData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
               </Pie>
               <Tooltip {...tooltipStyle} />
-              <Legend
-                verticalAlign="bottom"
-                height={36}
-                formatter={(value: string) => <span style={{ color: '#374151', fontSize: 12 }}>{value}</span>}
-              />
+              <Legend verticalAlign="bottom" height={36} formatter={(value: string) => <span style={{ color: '#333', fontSize: 12 }}>{value}</span>} />
             </PieChart>
           </ResponsiveContainer>
         </div>
         <div className="glass-card p-5">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Aging por Faixa de Atraso</h3>
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4 font-display">Aging por Faixa de Atraso</h3>
           <ResponsiveContainer width="100%" height={320}>
             <BarChart data={agingData} barSize={40}>
               <XAxis dataKey="faixa" tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} />
@@ -92,24 +81,24 @@ const DashboardPage = () => {
           </ResponsiveContainer>
         </div>
         <div className="glass-card p-5">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Inadimplência por Regional</h3>
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4 font-display">Inadimplência por Regional</h3>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={regionalData} layout="vertical" barSize={24}>
               <XAxis type="number" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `R$${(v / 1_000_000).toFixed(1)}M`} />
               <YAxis type="category" dataKey="regional" tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} width={70} />
               <Tooltip {...tooltipStyle} formatter={(v: number) => formatCurrency(v)} />
-              <Bar dataKey="total" fill="#3b82f6" radius={[0, 6, 6, 0]} />
+              <Bar dataKey="total" fill="#316AB4" radius={[0, 6, 6, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
         <div className="glass-card p-5">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Top Executivos (Carteira)</h3>
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4 font-display">Top Executivos (Carteira)</h3>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={execData} layout="vertical" barSize={20}>
               <XAxis type="number" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `R$${(v / 1_000_000).toFixed(1)}M`} />
               <YAxis type="category" dataKey="executivo" tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} width={90} />
               <Tooltip {...tooltipStyle} formatter={(v: number) => formatCurrency(v)} />
-              <Bar dataKey="valor" fill="#f59e0b" radius={[0, 6, 6, 0]} />
+              <Bar dataKey="valor" fill="#D4A843" radius={[0, 6, 6, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
