@@ -1,6 +1,6 @@
-import { clients, formatCurrency } from '@/data/mockData';
+import { clients, formatCurrency, parcelamentos } from '@/data/mockData';
 import StatusBadge from '@/components/StatusBadge';
-import { CheckCircle, DollarSign, TrendingUp, Percent } from 'lucide-react';
+import { CheckCircle, DollarSign, TrendingUp, Percent, CalendarDays } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 const RecuperacoesPage = () => {
@@ -18,6 +18,23 @@ const RecuperacoesPage = () => {
   const execData = Array.from(execMap.entries())
     .map(([executivo, valor]) => ({ executivo: executivo.split(' ')[0], valor }))
     .sort((a, b) => b.valor - a.valor);
+
+  // Parcelas esperadas por mês
+  const monthMap = new Map<string, number>();
+  parcelamentos.forEach(p => {
+    p.parcelas.forEach(parc => {
+      if (parc.status === 'Pendente') {
+        monthMap.set(parc.mes, (monthMap.get(parc.mes) || 0) + parc.valor);
+      }
+    });
+  });
+  const parcelasMes = Array.from(monthMap.entries())
+    .map(([mes, valor]) => {
+      const [y, m] = mes.split('-');
+      const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+      return { mes: `${monthNames[parseInt(m) - 1]}/${y}`, valor };
+    })
+    .sort((a, b) => a.mes.localeCompare(b.mes));
 
   const stats = [
     { label: 'Total em Cobrança', value: formatCurrency(totalRecuperado), icon: DollarSign, color: 'text-partial' },
@@ -46,23 +63,43 @@ const RecuperacoesPage = () => {
         ))}
       </div>
 
-      <div className="glass-card p-5">
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Valor por Executivo (Cobrança em Andamento)</h3>
-        <ResponsiveContainer width="100%" height={260}>
-          <BarChart data={execData} layout="vertical">
-            <XAxis type="number" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `R$${(v / 1_000_000).toFixed(1)}M`} />
-            <YAxis type="category" dataKey="executivo" tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} width={90} />
-            <Tooltip {...tooltipStyle} formatter={(v: number) => formatCurrency(v)} />
-            <Bar dataKey="valor" radius={[0, 6, 6, 0]}>
-              {execData.map((_, i) => (
-                <Cell key={i} fill="#3b82f6" />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="glass-card p-5">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Valor por Executivo (Cobrança em Andamento)</h3>
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={execData} layout="vertical">
+              <XAxis type="number" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `R$${(v / 1_000_000).toFixed(1)}M`} />
+              <YAxis type="category" dataKey="executivo" tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} width={90} />
+              <Tooltip {...tooltipStyle} formatter={(v: number) => formatCurrency(v)} />
+              <Bar dataKey="valor" radius={[0, 6, 6, 0]}>
+                {execData.map((_, i) => (
+                  <Cell key={i} fill="#3b82f6" />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Parcelas esperadas por mês */}
+        <div className="glass-card p-5">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
+            <CalendarDays className="h-4 w-4 text-negotiation" /> Parcelas Esperadas por Mês
+          </h3>
+          {parcelasMes.length > 0 ? (
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={parcelasMes}>
+                <XAxis dataKey="mes" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `R$${(v / 1000).toFixed(0)}k`} />
+                <Tooltip {...tooltipStyle} formatter={(v: number) => formatCurrency(v)} />
+                <Bar dataKey="valor" fill="#f59e0b" radius={[6, 6, 0, 0]} barSize={40} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="text-muted-foreground text-sm py-8 text-center">Nenhuma parcela pendente.</p>
+          )}
+        </div>
       </div>
 
-      {/* Client lists with 3 values */}
       {parcelados.length > 0 && (
         <div>
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Parcelados ({parcelados.length})</h3>

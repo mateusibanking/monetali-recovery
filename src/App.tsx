@@ -9,6 +9,7 @@ import InadimplentesPage from "@/pages/InadimplentesPage";
 import RecuperacoesPage from "@/pages/RecuperacoesPage";
 import CadastrarPage from "@/pages/CadastrarPage";
 import AtividadesPage from "@/pages/AtividadesPage";
+import EvolucaoPage from "@/pages/EvolucaoPage";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -24,6 +25,7 @@ const App = () => (
             <Route path="/" element={<DashboardPage />} />
             <Route path="/inadimplentes" element={<InadimplentesPage />} />
             <Route path="/recuperacoes" element={<RecuperacoesPage />} />
+            <Route path="/evolucao" element={<EvolucaoPage />} />
             <Route path="/atividades" element={<AtividadesPage />} />
             <Route path="/cadastrar" element={<CadastrarPage />} />
           </Route>

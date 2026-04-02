@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { ArrowLeft, Mail, Phone, FileText, Calendar, MessageSquare, Save } from 'lucide-react';
-import { Client, Situacao, Flag, collectionEvents, formatCurrency, situacaoLabels } from '@/data/mockData';
+import { ArrowLeft, Mail, Phone, FileText, Calendar, MessageSquare, Save, CreditCard } from 'lucide-react';
+import { Client, Situacao, Flag, Parcela, collectionEvents, formatCurrency, situacaoLabels, parcelamentos } from '@/data/mockData';
 import StatusBadge from './StatusBadge';
-import FlagBadge from './FlagBadge';
 
 interface Props {
   client: Client;
@@ -34,6 +33,15 @@ const ClientDetail = ({ client, onBack }: Props) => {
   });
   const [saved, setSaved] = useState(false);
 
+  // Parcelamento state
+  const existingParc = parcelamentos.find(p => p.clientId === client.id);
+  const [parcForm, setParcForm] = useState({
+    numParcelas: existingParc?.numParcelas || client.parcelas,
+    valorParcela: existingParc?.valorParcela || Math.round(client.compensacao / client.parcelas * 100) / 100,
+    jurosParcelamento: existingParc?.jurosParcelamento || 0,
+    parcelas: existingParc?.parcelas || [] as Parcela[],
+  });
+
   const events = collectionEvents
     .filter(e => e.clientId === client.id)
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -62,6 +70,28 @@ const ClientDetail = ({ client, onBack }: Props) => {
     }));
   };
 
+  const toggleParcelaStatus = (idx: number) => {
+    setParcForm(prev => ({
+      ...prev,
+      parcelas: prev.parcelas.map((p, i) => i === idx ? { ...p, status: p.status === 'Pago' ? 'Pendente' : 'Pago' } : p),
+    }));
+  };
+
+  const generateParcelas = () => {
+    const now = new Date();
+    const newParcelas: Parcela[] = [];
+    for (let i = 0; i < parcForm.numParcelas; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+      newParcelas.push({
+        numero: i + 1,
+        mes: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+        valor: parcForm.valorParcela,
+        status: 'Pendente',
+      });
+    }
+    setParcForm(prev => ({ ...prev, parcelas: newParcelas }));
+  };
+
   const numField = (field: 'compensacao' | 'juros' | 'boletoVitbank' | 'pixMonetali' | 'diasAtraso' | 'parcelas', label: string) => (
     <div key={field} className="bg-secondary/30 rounded-lg p-3">
       <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">{label}</p>
@@ -86,6 +116,12 @@ const ClientDetail = ({ client, onBack }: Props) => {
     </div>
   );
 
+  const mesLabel = (mes: string) => {
+    const [y, m] = mes.split('-');
+    const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    return `${monthNames[parseInt(m) - 1]}/${y}`;
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -109,7 +145,6 @@ const ClientDetail = ({ client, onBack }: Props) => {
             <p className="text-sm font-mono text-muted-foreground">{client.cnpj}</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Status dropdown */}
             <select
               value={form.situacao}
               onChange={e => setForm(prev => ({ ...prev, situacao: e.target.value as Situacao }))}
@@ -117,7 +152,6 @@ const ClientDetail = ({ client, onBack }: Props) => {
             >
               {allSituacoes.map(s => <option key={s} value={s}>{situacaoLabels[s]}</option>)}
             </select>
-            {/* Flags toggles */}
             <div className="flex flex-wrap gap-1">
               {allFlags.map(f => (
                 <button
@@ -145,6 +179,86 @@ const ClientDetail = ({ client, onBack }: Props) => {
           {textField('executivo', 'Executivo')}
         </div>
       </div>
+
+      {/* Parcelamento section - only for PARCELADO status */}
+      {(form.situacao === 'PARCELADO' || client.situacao === 'PARCELADO') && (
+        <div className="glass-card p-6">
+          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <CreditCard className="h-5 w-5 text-negotiation" /> Parcelamento
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+            <div className="bg-secondary/30 rounded-lg p-3">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Nº de Parcelas</p>
+              <input
+                type="number"
+                value={parcForm.numParcelas}
+                onChange={e => setParcForm(prev => ({ ...prev, numParcelas: parseInt(e.target.value) || 0 }))}
+                className="w-full bg-transparent text-lg font-semibold font-mono border-b border-transparent hover:border-border focus:border-primary focus:outline-none transition-colors"
+              />
+            </div>
+            <div className="bg-secondary/30 rounded-lg p-3">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Valor por Parcela (R$)</p>
+              <input
+                type="number"
+                step="0.01"
+                value={parcForm.valorParcela}
+                onChange={e => setParcForm(prev => ({ ...prev, valorParcela: parseFloat(e.target.value) || 0 }))}
+                className="w-full bg-transparent text-lg font-semibold font-mono border-b border-transparent hover:border-border focus:border-primary focus:outline-none transition-colors"
+              />
+            </div>
+            <div className="bg-secondary/30 rounded-lg p-3">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Juros Parcelamento (%)</p>
+              <input
+                type="number"
+                step="0.1"
+                value={parcForm.jurosParcelamento}
+                onChange={e => setParcForm(prev => ({ ...prev, jurosParcelamento: parseFloat(e.target.value) || 0 }))}
+                className="w-full bg-transparent text-lg font-semibold font-mono border-b border-transparent hover:border-border focus:border-primary focus:outline-none transition-colors"
+              />
+            </div>
+          </div>
+
+          <button onClick={generateParcelas} className="mb-4 px-4 py-2 bg-negotiation/20 text-negotiation rounded-lg text-sm font-medium hover:bg-negotiation/30 transition-colors">
+            Gerar Parcelas
+          </button>
+
+          {parcForm.parcelas.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border/50 text-left">
+                    <th className="px-4 py-2 font-semibold text-muted-foreground text-xs uppercase">Parcela</th>
+                    <th className="px-4 py-2 font-semibold text-muted-foreground text-xs uppercase">Mês</th>
+                    <th className="px-4 py-2 font-semibold text-muted-foreground text-xs uppercase">Valor</th>
+                    <th className="px-4 py-2 font-semibold text-muted-foreground text-xs uppercase">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {parcForm.parcelas.map((p, idx) => (
+                    <tr key={p.numero} className="border-b border-border/30">
+                      <td className="px-4 py-2 font-medium">Parcela {p.numero}</td>
+                      <td className="px-4 py-2 font-mono text-muted-foreground">{mesLabel(p.mes)}</td>
+                      <td className="px-4 py-2 font-mono font-semibold">{formatCurrency(p.valor)}</td>
+                      <td className="px-4 py-2">
+                        <button
+                          onClick={() => toggleParcelaStatus(idx)}
+                          className={`px-2.5 py-0.5 rounded-full text-xs font-semibold transition-colors ${
+                            p.status === 'Pago'
+                              ? 'bg-recovered/10 text-recovered border border-recovered/25'
+                              : 'bg-negotiation/10 text-negotiation border border-negotiation/25'
+                          }`}
+                        >
+                          {p.status}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="glass-card p-6">
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">

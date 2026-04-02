@@ -27,6 +27,21 @@ export interface CollectionEvent {
   agent: string;
 }
 
+export interface Parcela {
+  numero: number;
+  mes: string;
+  valor: number;
+  status: 'Pago' | 'Pendente';
+}
+
+export interface ParcelamentoData {
+  clientId: string;
+  numParcelas: number;
+  valorParcela: number;
+  jurosParcelamento: number;
+  parcelas: Parcela[];
+}
+
 export const clients: Client[] = [
   { id: '1', nome: 'AÇÕES', cnpj: '', regional: 'RJ / SP', executivo: 'Lucas Santos', compensacao: 7333699.92, juros: 0, boletoVitbank: 5500274.94, pixMonetali: 344133.87, diasAtraso: 158, parcelas: 2, situacao: 'COBRANÇA EM ANDAMENTO', flags: [] },
   { id: '2', nome: 'ESVJ ENGENHARIA', cnpj: '06.020.141/0001-52', regional: 'RJ / SP', executivo: 'Miriane Martins', compensacao: 2602175.50, juros: 59103.52, boletoVitbank: 1892528.10, pixMonetali: 119333.65, diasAtraso: 275, parcelas: 5, situacao: 'COBRANÇA EM ANDAMENTO', flags: [] },
@@ -55,6 +70,45 @@ export const collectionEvents: CollectionEvent[] = [
   { id: '7', clientId: '2', date: '2026-03-15', type: 'email', description: 'Lembrete de parcelas pendentes enviado.', agent: 'Sistema' },
   { id: '8', clientId: '6', date: '2026-03-22', type: 'phone', description: 'Cliente ciente dos juros acumulados. Aguardando posição.', agent: 'Elias Soares' },
 ];
+
+// Mock parcelamento data for client 14 (ANDRADE SILVA ALIMENTOS - PARCELADO)
+export const parcelamentos: ParcelamentoData[] = [
+  {
+    clientId: '14',
+    numParcelas: 3,
+    valorParcela: 24321.94,
+    jurosParcelamento: 2.5,
+    parcelas: [
+      { numero: 1, mes: '2026-04', valor: 24321.94, status: 'Pago' },
+      { numero: 2, mes: '2026-05', valor: 24321.94, status: 'Pendente' },
+      { numero: 3, mes: '2026-06', valor: 24321.94, status: 'Pendente' },
+    ],
+  },
+];
+
+// Mock daily evolution data
+export const dailyEvolutionData = (() => {
+  const data = [];
+  const baseDate = new Date('2026-03-01');
+  let acumulado = 0;
+  for (let i = 0; i < 31; i++) {
+    const d = new Date(baseDate);
+    d.setDate(d.getDate() + i);
+    const contatos = Math.floor(Math.random() * 8) + 1;
+    const renegociacoes = Math.floor(Math.random() * 3);
+    const recuperacao = Math.floor(Math.random() * 150000) + 20000;
+    acumulado += recuperacao;
+    data.push({
+      dia: d.toISOString().split('T')[0],
+      diaLabel: `${d.getDate()}/${d.getMonth() + 1}`,
+      contatos,
+      renegociacoes,
+      recuperacao,
+      acumulado,
+    });
+  }
+  return data;
+})();
 
 export const formatCurrency = (value: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);

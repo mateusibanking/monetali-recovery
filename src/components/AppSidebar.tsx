@@ -1,11 +1,12 @@
 import { useLocation } from 'react-router-dom';
-import { LayoutDashboard, AlertCircle, CheckCircle2, UserPlus, ClipboardList } from 'lucide-react';
+import { LayoutDashboard, AlertCircle, CheckCircle2, UserPlus, ClipboardList, TrendingUp } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 
 const navItems = [
   { title: 'Dashboard', url: '/', icon: LayoutDashboard },
   { title: 'Inadimplentes', url: '/inadimplentes', icon: AlertCircle },
   { title: 'Recuperações', url: '/recuperacoes', icon: CheckCircle2 },
+  { title: 'Evolução', url: '/evolucao', icon: TrendingUp },
   { title: 'Atividades', url: '/atividades', icon: ClipboardList },
   { title: 'Cadastrar', url: '/cadastrar', icon: UserPlus },
 ];
