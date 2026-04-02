@@ -1,6 +1,25 @@
 export type Situacao = 'COBRANÇA OK' | 'COBRANÇA EM ANDAMENTO' | 'NÃO PAGO' | 'PARCELADO' | 'DISTRATO';
 
-export type Flag = 'Prioridade' | 'Juros' | 'Sem Contato' | 'Jurídico' | 'Parcelamento';
+export type Flag = 'Prioridade' | 'Juros' | 'Sem Contato' | 'Jurídico' | 'Parcelamento' | 'Promessa de Pgto' | string;
+
+export type PaymentStatus = 'Pendente' | 'Pago' | 'Parcial' | 'Vencido';
+
+export interface Payment {
+  id: string;
+  valor: number;
+  dataVencimento: string;
+  descricao: string;
+  status: PaymentStatus;
+}
+
+export interface TimelineEvent {
+  id: string;
+  clientId: string;
+  date: string;
+  type: 'status_change' | 'email' | 'payment' | 'flag' | 'phone' | 'meeting' | 'legal' | 'note';
+  description: string;
+  agent: string;
+}
 
 export interface Client {
   id: string;
