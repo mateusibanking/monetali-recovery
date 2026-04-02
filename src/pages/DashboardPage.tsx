@@ -42,9 +42,10 @@ const DashboardPage = () => {
   })).sort((a, b) => b.valor - a.valor);
 
   const tooltipStyle = {
-    contentStyle: { background: 'hsl(222, 44%, 8%)', border: '1px solid hsl(222, 30%, 16%)', borderRadius: 8, fontSize: 12 },
-    labelStyle: { color: 'hsl(210, 40%, 80%)' },
+    contentStyle: { background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12, color: '#1a1a1a' },
+    labelStyle: { color: '#6b7280' },
   };
+
 
   return (
     <div className="space-y-6">
