@@ -1,4 +1,11 @@
 // Global premissas store
+export interface EmailTemplate {
+  id: string;
+  nome: string;
+  assunto: string;
+  corpo: string;
+}
+
 export interface Premissas {
   taxaJurosDia: number;
   taxaJurosMes: number;
@@ -6,7 +13,7 @@ export interface Premissas {
   diasCarencia: number;
   diasEscalacaoJuridica: number;
   emailRemetente: string;
-  templates: { id: string; nome: string; corpo: string }[];
+  templates: EmailTemplate[];
 }
 
 export const premissas: Premissas = {
@@ -17,9 +24,76 @@ export const premissas: Premissas = {
   diasEscalacaoJuridica: 90,
   emailRemetente: 'cobranca@monetali.com.br',
   templates: [
-    { id: '1', nome: 'Lembrete Inicial', corpo: 'Prezado(a) {nome},\n\nIdentificamos que o pagamento referente ao valor de {valor} encontra-se pendente desde {data_vencimento}.\n\nSolicitamos a regularização o mais breve possível.\n\nAtenciosamente,\nEquipe Monetali' },
-    { id: '2', nome: 'Segunda Cobrança', corpo: 'Prezado(a) {nome},\n\nEsta é a segunda notificação referente ao débito de {valor}, vencido em {data_vencimento}.\n\nJuros e multa estão sendo aplicados conforme contrato.\n\nFavor entrar em contato para negociação.\n\nAtenciosamente,\nEquipe Monetali' },
-    { id: '3', nome: 'Aviso Jurídico', corpo: 'Prezado(a) {nome},\n\nInformamos que o débito de {valor} será encaminhado ao departamento jurídico caso não seja regularizado em {dias_carencia} dias.\n\nAtenciosamente,\nEquipe Monetali' },
+    {
+      id: '1',
+      nome: 'Cobrança Inicial',
+      assunto: 'Aviso de pendência financeira — {{nome_cliente}}',
+      corpo: `Prezado(a) {{nome_cliente}},
+
+Identificamos que o pagamento referente ao valor de {{valor_total}}, com vencimento original em {{dias_atraso}} dias atrás, encontra-se pendente.
+
+CNPJ: {{cnpj}}
+Parcelas em aberto: {{parcelas_abertas}}
+Valor total atualizado: {{valor_total}}
+
+Gostaríamos de entender sua situação e oferecer alternativas para regularização. Nosso canal de negociação está à disposição para encontrar a melhor solução.
+
+Caso o pagamento já tenha sido efetuado, por favor desconsidere esta mensagem e nos envie o comprovante.
+
+Atenciosamente,
+Equipe Monetali
+cobranca@monetali.com.br`,
+    },
+    {
+      id: '2',
+      nome: 'Lembrete 30 dias',
+      assunto: 'URGENTE: Débito pendente há {{dias_atraso}} dias — {{nome_cliente}}',
+      corpo: `Prezado(a) {{nome_cliente}},
+
+Esta é uma notificação urgente referente ao débito em seu nome, pendente há {{dias_atraso}} dias.
+
+CNPJ: {{cnpj}}
+Valor total atualizado (com juros e multa): {{valor_total}}
+Parcelas em aberto: {{parcelas_abertas}}
+
+Informamos que juros e multa continuam sendo aplicados diariamente conforme contrato, aumentando o valor da dívida.
+
+A não regularização poderá acarretar em:
+• Inclusão nos órgãos de proteção ao crédito
+• Suspensão de serviços
+• Encaminhamento ao departamento jurídico
+
+Solicitamos a regularização imediata ou o contato para negociação.
+
+Atenciosamente,
+Equipe Monetali
+cobranca@monetali.com.br`,
+    },
+    {
+      id: '3',
+      nome: 'Pré-Jurídico',
+      assunto: 'NOTIFICAÇÃO EXTRAJUDICIAL — {{nome_cliente}} — CNPJ {{cnpj}}',
+      corpo: `Prezado(a) {{nome_cliente}},
+
+Pelo presente, NOTIFICAMOS formalmente que o débito abaixo discriminado, após reiteradas tentativas de contato e negociação sem êxito, será encaminhado ao departamento jurídico para as medidas cabíveis.
+
+CNPJ: {{cnpj}}
+Valor total atualizado: {{valor_total}}
+Dias em atraso: {{dias_atraso}}
+Parcelas em aberto: {{parcelas_abertas}}
+
+Caso a regularização não seja efetuada no prazo de 5 (cinco) dias úteis a contar do recebimento desta notificação, serão adotadas as seguintes providências:
+1. Inscrição nos órgãos de proteção ao crédito (SPC/Serasa)
+2. Ajuizamento de ação de cobrança
+3. Protesto de títulos
+
+Este é o último contato antes do encaminhamento jurídico.
+
+Atenciosamente,
+Departamento de Cobrança
+Monetali
+cobranca@monetali.com.br`,
+    },
   ],
 };
 
@@ -32,3 +106,11 @@ export const calcularJuros = (valorOriginal: number, diasAtraso: number): { juro
     valorAtualizado: Math.round((valorOriginal + jurosAcumulados + multa) * 100) / 100,
   };
 };
+
+export const TEMPLATE_VARIABLES = [
+  { key: '{{nome_cliente}}', desc: 'Nome do cliente' },
+  { key: '{{valor_total}}', desc: 'Valor total atualizado' },
+  { key: '{{dias_atraso}}', desc: 'Dias em atraso' },
+  { key: '{{parcelas_abertas}}', desc: 'Quantidade de parcelas em aberto' },
+  { key: '{{cnpj}}', desc: 'CNPJ do cliente' },
+];
