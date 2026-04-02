@@ -1,4 +1,4 @@
-import { LayoutDashboard, AlertCircle, CheckCircle2, UserPlus, ClipboardList, TrendingUp, Settings } from 'lucide-react';
+import { LayoutDashboard, AlertCircle, CheckCircle2, UserPlus, ClipboardList, TrendingUp, Settings, Upload } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import MonetaliLogo from '@/components/MonetaliLogo';
 
