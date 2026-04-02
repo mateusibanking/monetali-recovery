@@ -11,6 +11,7 @@ import CadastrarPage from "@/pages/CadastrarPage";
 import AtividadesPage from "@/pages/AtividadesPage";
 import EvolucaoPage from "@/pages/EvolucaoPage";
 import PremissasPage from "@/pages/PremissasPage";
+import ImportacaoPage from "@/pages/ImportacaoPage";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -29,6 +30,7 @@ const App = () => (
             <Route path="/evolucao" element={<EvolucaoPage />} />
             <Route path="/atividades" element={<AtividadesPage />} />
             <Route path="/cadastrar" element={<CadastrarPage />} />
+            <Route path="/importacao" element={<ImportacaoPage />} />
             <Route path="/premissas" element={<PremissasPage />} />
           </Route>
           <Route path="*" element={<NotFound />} />

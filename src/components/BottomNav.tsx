@@ -1,4 +1,4 @@
-import { LayoutDashboard, AlertCircle, CheckCircle2, UserPlus, ClipboardList, TrendingUp, Settings } from 'lucide-react';
+import { LayoutDashboard, AlertCircle, CheckCircle2, UserPlus, ClipboardList, TrendingUp, Settings, Upload } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 
 const navItems = [
@@ -8,6 +8,7 @@ const navItems = [
   { title: 'Evolução', url: '/evolucao', icon: TrendingUp },
   { title: 'Atividades', url: '/atividades', icon: ClipboardList },
   { title: 'Cadastrar', url: '/cadastrar', icon: UserPlus },
+  { title: 'Importação', url: '/importacao', icon: Upload },
   { title: 'Premissas', url: '/premissas', icon: Settings },
 ];
 
