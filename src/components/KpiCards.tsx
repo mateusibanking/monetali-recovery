@@ -27,6 +27,22 @@ const KpiCards = ({ clients: clientsProp }: KpiCardsProps) => {
     { label: 'Clientes', value: novosCadastros.toString(), icon: UserPlus, color: 'text-primary' },
   ];
 
+  if (clients.length === 0) {
+    return (
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
+        {kpis.map((kpi) => (
+          <div key={kpi.label} className="glass-card p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground leading-tight">{kpi.label}</span>
+              <kpi.icon className="h-4 w-4 text-muted-foreground/40 shrink-0" />
+            </div>
+            <p className="text-lg font-bold font-mono text-muted-foreground/40">—</p>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
       {kpis.map((kpi) => (
