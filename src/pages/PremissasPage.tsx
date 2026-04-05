@@ -1,15 +1,58 @@
-import { useState } from 'react';
-import { Settings, Save, Plus, Trash2, FileText, Copy, ChevronDown, ChevronUp } from 'lucide-react';
-import { premissas, TEMPLATE_VARIABLES, type EmailTemplate } from '@/data/premissas';
+import { useState, useEffect } from 'react';
+import { Settings, Save, Plus, Trash2, FileText, Copy, ChevronDown, ChevronUp, ShieldAlert } from 'lucide-react';
+import { TEMPLATE_VARIABLES, type EmailTemplate } from '@/data/premissas';
+import { premissas as staticPremissas } from '@/data/premissas';
+import { usePremissas } from '@/hooks/usePremissas';
+import { usePermission } from '@/hooks/usePermission';
+import LoadingSkeleton from '@/components/LoadingSkeleton';
+import { toast } from 'sonner';
 
 const PremissasPage = () => {
-  const [form, setForm] = useState({ ...premissas, templates: premissas.templates.map(t => ({ ...t })) });
+  const canUpdate = usePermission('premissas', 'update');
+  const { data: dbPremissas, loading, error, updatePremissa } = usePremissas();
+
+  const [form, setForm] = useState({
+    taxaJurosDia: 0.033,
+    taxaJurosMes: 1.0,
+    multaAtraso: 2.0,
+    diasCarencia: 5,
+    diasEscalacaoJuridica: 90,
+    emailRemetente: 'cobranca@monetali.com.br',
+    templates: staticPremissas.templates.map(t => ({ ...t })),
+  });
   const [saved, setSaved] = useState(false);
   const [expandedTemplate, setExpandedTemplate] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'parametros' | 'templates'>('parametros');
 
-  const handleSave = () => {
-    Object.assign(premissas, {
+  // Sync form with DB data when loaded
+  useEffect(() => {
+    if (!loading) {
+      setForm(prev => ({
+        ...prev,
+        taxaJurosDia: dbPremissas.taxaJurosDia,
+        taxaJurosMes: dbPremissas.taxaJurosMes,
+        multaAtraso: dbPremissas.multaAtraso,
+        diasCarencia: dbPremissas.diasCarencia,
+        diasEscalacaoJuridica: dbPremissas.diasEscalacaoJuridica,
+        emailRemetente: dbPremissas.emailRemetente,
+      }));
+    }
+  }, [loading, dbPremissas]);
+
+  const handleSave = async () => {
+    // Save to Supabase
+    const updates = [
+      updatePremissa('taxa_juros_dia', String(form.taxaJurosDia)),
+      updatePremissa('taxa_juros_mes', String(form.taxaJurosMes)),
+      updatePremissa('multa_atraso', String(form.multaAtraso)),
+      updatePremissa('dias_carencia', String(form.diasCarencia)),
+      updatePremissa('dias_escalacao_juridico', String(form.diasEscalacaoJuridica)),
+    ];
+    const results = await Promise.all(updates);
+    const allOk = results.every(Boolean);
+
+    // Also update static premissas for email templates (which aren't in DB)
+    Object.assign(staticPremissas, {
       taxaJurosDia: form.taxaJurosDia,
       taxaJurosMes: form.taxaJurosMes,
       multaAtraso: form.multaAtraso,
@@ -18,8 +61,14 @@ const PremissasPage = () => {
       emailRemetente: form.emailRemetente,
       templates: form.templates.map(t => ({ ...t })),
     });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+
+    if (allOk) {
+      setSaved(true);
+      toast.success('Premissas salvas no Supabase!');
+      setTimeout(() => setSaved(false), 2000);
+    } else {
+      toast.error('Erro ao salvar algumas premissas.');
+    }
   };
 
   const addTemplate = () => {
@@ -51,6 +100,8 @@ const PremissasPage = () => {
     }));
   };
 
+  if (loading) return <LoadingSkeleton />;
+
   const numInput = (label: string, field: keyof typeof form, suffix: string, step = '0.01') => (
     <div className="bg-secondary/30 rounded-lg p-4">
       <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">{label}</label>
@@ -73,41 +124,34 @@ const PremissasPage = () => {
         <h2 className="text-xl font-bold font-display flex items-center gap-2">
           <Settings className="h-5 w-5" /> Premissas
         </h2>
-        <button
-          onClick={handleSave}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-            saved ? 'bg-[hsl(var(--recovered))] text-white' : 'bg-primary text-primary-foreground hover:bg-primary/90'
-          }`}
-        >
-          <Save className="h-4 w-4" /> {saved ? 'Salvo!' : 'Salvar Premissas'}
-        </button>
+        {canUpdate ? (
+          <button onClick={handleSave}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              saved ? 'bg-[hsl(var(--recovered))] text-white' : 'bg-primary text-primary-foreground hover:bg-primary/90'
+            }`}>
+            <Save className="h-4 w-4" /> {saved ? 'Salvo!' : 'Salvar Premissas'}
+          </button>
+        ) : (
+          <span className="flex items-center gap-2 text-xs text-muted-foreground">
+            <ShieldAlert className="h-4 w-4" /> Somente leitura
+          </span>
+        )}
       </div>
 
       {/* Tabs */}
       <div className="flex gap-1 bg-secondary/30 rounded-lg p-1">
-        <button
-          onClick={() => setActiveTab('parametros')}
-          className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-            activeTab === 'parametros' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <Settings className="h-4 w-4 inline mr-1.5" />
-          Parâmetros
+        <button onClick={() => setActiveTab('parametros')}
+          className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'parametros' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+          <Settings className="h-4 w-4 inline mr-1.5" /> Parâmetros
         </button>
-        <button
-          onClick={() => setActiveTab('templates')}
-          className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-            activeTab === 'templates' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <FileText className="h-4 w-4 inline mr-1.5" />
-          Templates de Email
+        <button onClick={() => setActiveTab('templates')}
+          className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'templates' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+          <FileText className="h-4 w-4 inline mr-1.5" /> Templates de Email
         </button>
       </div>
 
       {activeTab === 'parametros' && (
         <>
-          {/* Taxas e Parâmetros */}
           <div className="glass-card p-6">
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Taxas e Parâmetros</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -118,18 +162,12 @@ const PremissasPage = () => {
               {numInput('Dias p/ Escalação Jurídica', 'diasEscalacaoJuridica', 'dias', '1')}
             </div>
           </div>
-
-          {/* Email */}
           <div className="glass-card p-6">
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Email</h3>
             <div className="bg-secondary/30 rounded-lg p-4">
               <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Email Remetente Padrão</label>
-              <input
-                type="email"
-                value={form.emailRemetente}
-                onChange={e => setForm(prev => ({ ...prev, emailRemetente: e.target.value }))}
-                className="w-full mt-2 bg-transparent text-base font-mono border-b border-transparent hover:border-border focus:border-primary focus:outline-none transition-colors"
-              />
+              <input type="email" value={form.emailRemetente} onChange={e => setForm(prev => ({ ...prev, emailRemetente: e.target.value }))}
+                className="w-full mt-2 bg-transparent text-base font-mono border-b border-transparent hover:border-border focus:border-primary focus:outline-none transition-colors" />
             </div>
           </div>
         </>
@@ -137,7 +175,6 @@ const PremissasPage = () => {
 
       {activeTab === 'templates' && (
         <>
-          {/* Templates */}
           <div className="glass-card p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Templates de Cobrança</h3>
@@ -145,7 +182,6 @@ const PremissasPage = () => {
                 <Plus className="h-4 w-4" /> Novo Template
               </button>
             </div>
-
             <div className="space-y-3">
               {form.templates.map(t => {
                 const isExpanded = expandedTemplate === t.id;
@@ -167,33 +203,22 @@ const PremissasPage = () => {
                         {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
                       </div>
                     </div>
-
                     {isExpanded && (
                       <div className="px-4 pb-4 space-y-3 border-t border-border/30 pt-3">
                         <div>
                           <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Nome do Template</label>
-                          <input
-                            value={t.nome}
-                            onChange={e => updateTemplate(t.id, 'nome', e.target.value)}
-                            className="w-full mt-1 px-3 py-2 bg-background border border-border/50 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
-                          />
+                          <input value={t.nome} onChange={e => updateTemplate(t.id, 'nome', e.target.value)}
+                            className="w-full mt-1 px-3 py-2 bg-background border border-border/50 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary/50" />
                         </div>
                         <div>
                           <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Assunto do Email</label>
-                          <input
-                            value={t.assunto}
-                            onChange={e => updateTemplate(t.id, 'assunto', e.target.value)}
-                            className="w-full mt-1 px-3 py-2 bg-background border border-border/50 rounded-lg text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary/50"
-                          />
+                          <input value={t.assunto} onChange={e => updateTemplate(t.id, 'assunto', e.target.value)}
+                            className="w-full mt-1 px-3 py-2 bg-background border border-border/50 rounded-lg text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary/50" />
                         </div>
                         <div>
                           <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Corpo do Email</label>
-                          <textarea
-                            value={t.corpo}
-                            onChange={e => updateTemplate(t.id, 'corpo', e.target.value)}
-                            rows={12}
-                            className="w-full mt-1 px-3 py-2 bg-background border border-border/50 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary/50 font-mono resize-y"
-                          />
+                          <textarea value={t.corpo} onChange={e => updateTemplate(t.id, 'corpo', e.target.value)} rows={12}
+                            className="w-full mt-1 px-3 py-2 bg-background border border-border/50 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary/50 font-mono resize-y" />
                         </div>
                       </div>
                     )}
@@ -202,8 +227,6 @@ const PremissasPage = () => {
               })}
             </div>
           </div>
-
-          {/* Variáveis disponíveis */}
           <div className="glass-card p-6">
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Variáveis Disponíveis</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">

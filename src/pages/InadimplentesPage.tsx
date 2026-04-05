@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Client, clients as allClients } from '@/data/mockData';
+import { Client } from '@/data/mockData';
 import ClientTable from '@/components/ClientTable';
 import ClientDetail from '@/components/ClientDetail';
 

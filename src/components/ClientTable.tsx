@@ -1,12 +1,22 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { Search, ChevronRight, AlertCircle, Settings2, X } from 'lucide-react';
-import { Client, Situacao, Flag, clients as allClients, formatCurrency, situacaoLabels, situacaoColors, collectionEvents, DEFAULT_FLAGS, customFlags } from '@/data/mockData';
+import { Search, ChevronRight, AlertCircle, Settings2, X, Upload } from 'lucide-react';
+import { Client, Situacao, Flag, formatCurrency, situacaoLabels, situacaoColors } from '@/data/mockData';
+import { useClientes } from '@/hooks/useClientes';
+import { useFlags } from '@/hooks/useFlags';
+import { useAtividades } from '@/hooks/useAtividades';
 import StatusBadge from './StatusBadge';
 import FlagBadge from './FlagBadge';
+import Pagination from './Pagination';
+import EmptyState from './EmptyState';
+import LoadingSkeleton from './LoadingSkeleton';
+import { useDebounce } from '@/hooks/useDebounce';
+import { toast } from 'sonner';
 
 interface Props {
   onSelectClient: (client: Client) => void;
 }
+
+const ITEMS_PER_PAGE = 50;
 
 const allSituacoes: Situacao[] = Object.keys(situacaoLabels) as Situacao[];
 const AGING_RANGES = [
@@ -22,28 +32,35 @@ const columnLabels: Record<ColumnKey, string> = {
   boletoVB: 'Boleto VB', pixMon: 'PIX Mon', dias: 'Dias', situacao: 'Situação', flags: 'Flags',
 };
 
+const DEFAULT_FLAGS: Flag[] = ['Prioridade', 'Juros', 'Sem Contato', 'Jurídico', 'Parcelamento', 'Promessa de Pgto'];
+
 const ClientTable = ({ onSelectClient }: Props) => {
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
   const [statusFilters, setStatusFilters] = useState<Set<Situacao>>(new Set());
   const [regionalFilters, setRegionalFilters] = useState<Set<string>>(new Set());
   const [executivoFilters, setExecutivoFilters] = useState<Set<string>>(new Set());
   const [agingFilters, setAgingFilters] = useState<Set<number>>(new Set());
   const [flagFilters, setFlagFilters] = useState<Set<string>>(new Set());
 
+  const [currentPage, setCurrentPage] = useState(1);
+
   const [visibleColumns, setVisibleColumns] = useState<Set<ColumnKey>>(new Set(Object.keys(columnLabels) as ColumnKey[]));
   const [columnsOpen, setColumnsOpen] = useState(false);
   const columnsRef = useRef<HTMLDivElement>(null);
 
-  const [editingCell, setEditingCell] = useState<{ clientId: string; field: string } | null>(null);
-  const [editValue, setEditValue] = useState('');
-  const [flagDropdown, setFlagDropdown] = useState<string | null>(null);
   const [statusDropdown, setStatusDropdown] = useState<string | null>(null);
+  const [flagDropdown, setFlagDropdown] = useState<string | null>(null);
 
-  // Expanded filter sections
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['status']));
 
-  const clientIdsWithActivity = new Set(collectionEvents.map(e => e.clientId));
-  const allFlags = [...new Set([...DEFAULT_FLAGS, ...customFlags])];
+  // --- Supabase hooks ---
+  const { data: allClients, loading, error, update: updateCliente } = useClientes();
+  const { flagsDisponiveis } = useFlags();
+  const { events: allEvents } = useAtividades();
+
+  const clientIdsWithActivity = useMemo(() => new Set(allEvents.map(e => e.clientId)), [allEvents]);
+  const allFlags = useMemo(() => [...new Set([...DEFAULT_FLAGS, ...flagsDisponiveis])], [flagsDisponiveis]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -53,15 +70,19 @@ const ClientTable = ({ onSelectClient }: Props) => {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // Derived unique values
-  const regionais = useMemo(() => [...new Set(allClients.map(c => c.regional).filter(Boolean))].sort(), []);
-  const executivos = useMemo(() => [...new Set(allClients.map(c => c.executivo).filter(Boolean))].sort(), []);
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch, statusFilters, regionalFilters, executivoFilters, agingFilters, flagFilters]);
+
+  const regionais = useMemo(() => [...new Set(allClients.map(c => c.regional).filter(Boolean))].sort(), [allClients]);
+  const executivos = useMemo(() => [...new Set(allClients.map(c => c.executivo).filter(Boolean))].sort(), [allClients]);
 
   const hasAnyFilter = statusFilters.size > 0 || regionalFilters.size > 0 || executivoFilters.size > 0 || agingFilters.size > 0 || flagFilters.size > 0;
 
   const filtered = useMemo(() => allClients.filter(c => {
-    const matchesSearch = !search || c.nome.toLowerCase().includes(search.toLowerCase()) ||
-      c.cnpj.includes(search) || c.executivo.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = !debouncedSearch || c.nome.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      c.cnpj.includes(debouncedSearch) || c.executivo.toLowerCase().includes(debouncedSearch.toLowerCase());
     const matchesStatus = statusFilters.size === 0 || statusFilters.has(c.situacao);
     const matchesRegional = regionalFilters.size === 0 || regionalFilters.has(c.regional);
     const matchesExecutivo = executivoFilters.size === 0 || executivoFilters.has(c.executivo);
@@ -71,7 +92,13 @@ const ClientTable = ({ onSelectClient }: Props) => {
     });
     const matchesFlags = flagFilters.size === 0 || [...flagFilters].every(f => c.flags.includes(f));
     return matchesSearch && matchesStatus && matchesRegional && matchesExecutivo && matchesAging && matchesFlags;
-  }), [search, statusFilters, regionalFilters, executivoFilters, agingFilters, flagFilters]);
+  }), [allClients, debouncedSearch, statusFilters, regionalFilters, executivoFilters, agingFilters, flagFilters]);
+
+  // Paginated results
+  const paginatedClients = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filtered.slice(start, start + ITEMS_PER_PAGE);
+  }, [filtered, currentPage]);
 
   const clearFilters = () => {
     setStatusFilters(new Set());
@@ -102,43 +129,26 @@ const ClientTable = ({ onSelectClient }: Props) => {
     });
   };
 
-  const startEdit = (clientId: string, field: string, currentValue: string) => {
-    setEditingCell({ clientId, field }); setEditValue(currentValue);
+  const toggleFlag = async (client: Client, flag: Flag) => {
+    const hasFlag = client.flags.includes(flag);
+    const newFlags = hasFlag ? client.flags.filter(f => f !== flag) : [...client.flags, flag];
+    const ok = await updateCliente(client.id, { flags: newFlags });
+    if (ok) {
+      toast.success(`Flag "${flag}" ${hasFlag ? 'removida de' : 'adicionada a'} ${client.nome}.`);
+    }
   };
 
-  const commitEdit = (client: Client) => {
-    if (!editingCell) return;
-    const num = parseFloat(editValue.replace(/[^\d.,]/g, '').replace(',', '.'));
-    if (!isNaN(num)) (client as any)[editingCell.field] = editingCell.field === 'diasAtraso' ? parseInt(editValue) : num;
-    setEditingCell(null);
-  };
-
-  const toggleFlag = (client: Client, flag: Flag) => {
-    const idx = client.flags.indexOf(flag);
-    if (idx >= 0) client.flags.splice(idx, 1); else client.flags.push(flag);
-    setFlagDropdown(prev => prev);
-  };
-
-  const changeStatus = (client: Client, status: Situacao) => {
-    (client as any).situacao = status; setStatusDropdown(null);
+  const changeStatus = async (client: Client, status: Situacao) => {
+    const oldStatus = client.situacao;
+    const ok = await updateCliente(client.id, { situacao: status });
+    setStatusDropdown(null);
+    if (ok) {
+      toast.success(`Status de ${client.nome} alterado de "${situacaoLabels[oldStatus]}" para "${situacaoLabels[status]}".`);
+    }
   };
 
   const show = (col: ColumnKey) => visibleColumns.has(col);
 
-  const renderEditableNum = (client: Client, field: string, value: number, isCurrency = true, extraClass = '') => {
-    if (editingCell?.clientId === client.id && editingCell.field === field) {
-      return (
-        <input autoFocus value={editValue} onChange={e => setEditValue(e.target.value)}
-          onBlur={() => commitEdit(client)}
-          onKeyDown={e => { if (e.key === 'Enter') commitEdit(client); if (e.key === 'Escape') setEditingCell(null); }}
-          className="w-28 px-1 py-0.5 border border-primary rounded text-sm font-mono bg-background"
-          onClick={e => e.stopPropagation()} />
-      );
-    }
-    return <span className={extraClass}>{isCurrency ? formatCurrency(value) : `${value}d`}</span>;
-  };
-
-  // Count helpers
   const countStatus = (s: Situacao) => allClients.filter(c => c.situacao === s).length;
   const countRegional = (r: string) => allClients.filter(c => c.regional === r).length;
   const countExecutivo = (e: string) => allClients.filter(c => c.executivo === e).length;
@@ -161,6 +171,20 @@ const ClientTable = ({ onSelectClient }: Props) => {
       {expandedSections.has(id) && <div className="flex flex-wrap gap-1.5">{children}</div>}
     </div>
   );
+
+  if (loading) {
+    return <LoadingSkeleton />;
+  }
+
+  if (error) {
+    return (
+      <div className="glass-card p-12 flex flex-col items-center justify-center text-center">
+        <AlertCircle className="h-10 w-10 text-destructive mb-4" />
+        <h3 className="text-lg font-semibold mb-2">Erro ao carregar dados</h3>
+        <p className="text-sm text-muted-foreground">{error}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -255,17 +279,17 @@ const ClientTable = ({ onSelectClient }: Props) => {
                 {show('cliente') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Cliente</th>}
                 {show('regional') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider hidden lg:table-cell">Regional</th>}
                 {show('executivo') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider hidden md:table-cell">Executivo</th>}
-                {show('compensacao') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Compensação</th>}
-                {show('boletoVB') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider hidden md:table-cell">Boleto VB</th>}
-                {show('pixMon') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider hidden md:table-cell">PIX Mon</th>}
-                {show('dias') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider hidden sm:table-cell">Dias</th>}
+                {show('compensacao') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider text-right">Compensação</th>}
+                {show('boletoVB') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider hidden md:table-cell text-right">Boleto VB</th>}
+                {show('pixMon') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider hidden md:table-cell text-right">PIX Mon</th>}
+                {show('dias') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider hidden sm:table-cell text-right">Dias</th>}
                 {show('situacao') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Situação</th>}
                 {show('flags') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider hidden xl:table-cell">Flags</th>}
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map(client => {
+              {paginatedClients.map(client => {
                 const hasActivity = clientIdsWithActivity.has(client.id);
                 return (
                   <tr key={client.id} className="border-b border-border/30 hover:bg-accent/50 cursor-pointer transition-colors">
@@ -283,25 +307,25 @@ const ClientTable = ({ onSelectClient }: Props) => {
                     {show('regional') && <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell" onClick={() => onSelectClient(client)}>{client.regional}</td>}
                     {show('executivo') && <td className="px-4 py-3 text-muted-foreground hidden md:table-cell" onClick={() => onSelectClient(client)}>{client.executivo}</td>}
                     {show('compensacao') && (
-                      <td className="px-4 py-3 font-mono font-semibold" onClick={e => { e.stopPropagation(); startEdit(client.id, 'compensacao', client.compensacao.toString()); }}>
-                        {renderEditableNum(client, 'compensacao', client.compensacao)}
+                      <td className="px-4 py-3 font-mono font-semibold text-right" onClick={() => onSelectClient(client)}>
+                        {formatCurrency(client.compensacao)}
                       </td>
                     )}
                     {show('boletoVB') && (
-                      <td className="px-4 py-3 font-mono text-sm hidden md:table-cell" onClick={e => { e.stopPropagation(); startEdit(client.id, 'boletoVitbank', client.boletoVitbank.toString()); }}>
-                        {renderEditableNum(client, 'boletoVitbank', client.boletoVitbank)}
+                      <td className="px-4 py-3 font-mono text-sm hidden md:table-cell text-right" onClick={() => onSelectClient(client)}>
+                        {formatCurrency(client.boletoVitbank)}
                       </td>
                     )}
                     {show('pixMon') && (
-                      <td className="px-4 py-3 font-mono text-sm hidden md:table-cell" onClick={e => { e.stopPropagation(); startEdit(client.id, 'pixMonetali', client.pixMonetali.toString()); }}>
-                        {renderEditableNum(client, 'pixMonetali', client.pixMonetali)}
+                      <td className="px-4 py-3 font-mono text-sm hidden md:table-cell text-right" onClick={() => onSelectClient(client)}>
+                        {formatCurrency(client.pixMonetali)}
                       </td>
                     )}
                     {show('dias') && (
-                      <td className="px-4 py-3 hidden sm:table-cell" onClick={e => { e.stopPropagation(); startEdit(client.id, 'diasAtraso', client.diasAtraso.toString()); }}>
-                        {renderEditableNum(client, 'diasAtraso', client.diasAtraso, false,
+                      <td className="px-4 py-3 hidden sm:table-cell text-right" onClick={() => onSelectClient(client)}>
+                        <span className={
                           client.diasAtraso > 60 ? 'text-overdue font-semibold' : client.diasAtraso > 30 ? 'text-negotiation' : 'text-muted-foreground'
-                        )}
+                        }>{client.diasAtraso}d</span>
                       </td>
                     )}
                     {show('situacao') && (
@@ -344,9 +368,23 @@ const ClientTable = ({ onSelectClient }: Props) => {
             </tbody>
           </table>
           {filtered.length === 0 && (
-            <div className="p-8 text-center text-muted-foreground">Nenhum cliente encontrado.</div>
+            <EmptyState
+              icon={Upload}
+              title="Nenhum cliente encontrado"
+              description={hasAnyFilter || debouncedSearch ? "Tente ajustar os filtros ou a busca." : "Importe seus dados na página de Importação para começar."}
+              actionLabel={hasAnyFilter || debouncedSearch ? "Limpar filtros" : undefined}
+              onAction={hasAnyFilter || debouncedSearch ? clearFilters : undefined}
+            />
           )}
         </div>
+        {filtered.length > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalItems={filtered.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+            onPageChange={setCurrentPage}
+          />
+        )}
       </div>
     </div>
   );

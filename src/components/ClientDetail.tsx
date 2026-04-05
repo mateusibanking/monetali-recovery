@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   ArrowLeft, Save, Calendar, Mail, Phone, FileText, MessageSquare,
   CreditCard, Tag, Clock, Plus, X, Edit2, AlertCircle, CheckCircle2, CircleDot, AlertTriangle, Calculator,
@@ -6,11 +6,16 @@ import {
 } from 'lucide-react';
 import {
   Client, Situacao, Flag, Payment, PaymentStatus, TimelineEvent,
-  formatCurrency, situacaoLabels,
-  DEFAULT_FLAGS, customFlags, clientPayments, clientTimelines, getFlagColor,
+  formatCurrency, situacaoLabels, getFlagColor,
 } from '@/data/mockData';
-import { calcularJuros, premissas, type EmailTemplate } from '@/data/premissas';
+import { premissas as staticPremissas, calcularJuros, type EmailTemplate } from '@/data/premissas';
+import { usePagamentos } from '@/hooks/usePagamentos';
+import { useAtividades } from '@/hooks/useAtividades';
+import { useFlags } from '@/hooks/useFlags';
+import { usePremissas } from '@/hooks/usePremissas';
+import { useClientes } from '@/hooks/useClientes';
 import StatusBadge from './StatusBadge';
+import LoadingSkeleton from './LoadingSkeleton';
 
 interface Props {
   client: Client;
@@ -18,6 +23,7 @@ interface Props {
 }
 
 const allSituacoes: Situacao[] = Object.keys(situacaoLabels) as Situacao[];
+const DEFAULT_FLAGS: Flag[] = ['Prioridade', 'Juros', 'Sem Contato', 'Jurídico', 'Parcelamento', 'Promessa de Pgto'];
 
 const PAYMENT_STATUS_STYLES: Record<PaymentStatus, { bg: string; icon: typeof CheckCircle2 }> = {
   Pago: { bg: 'bg-recovered/10 text-recovered border-recovered/25', icon: CheckCircle2 },
@@ -41,6 +47,13 @@ const substituirVariaveis = (texto: string, client: Client, openPaymentsCount: n
 };
 
 const ClientDetail = ({ client, onBack }: Props) => {
+  // --- Supabase hooks ---
+  const { update: updateCliente } = useClientes();
+  const { data: payments, loading: loadingPay, create: createPayment, update: updatePaymentDb } = usePagamentos(client.id);
+  const { timeline, loading: loadingTimeline, create: createAtividade } = useAtividades(client.id);
+  const { flagsDisponiveis, addFlag: addFlagDb, removeFlag: removeFlagDb } = useFlags(client.id);
+  const { data: dbPremissas } = usePremissas();
+
   const [form, setForm] = useState({
     compensacao: client.compensacao,
     juros: client.juros,
@@ -54,30 +67,32 @@ const ClientDetail = ({ client, onBack }: Props) => {
     flags: [...client.flags] as Flag[],
   });
   const [saved, setSaved] = useState(false);
-  const [payments, setPayments] = useState<Payment[]>(() => clientPayments[client.id] || []);
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   const [newFlagInput, setNewFlagInput] = useState('');
   const [showParcelamento, setShowParcelamento] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
 
-  const allAvailableFlags = [...new Set([...DEFAULT_FLAGS, ...customFlags, ...form.flags])];
+  const allAvailableFlags = [...new Set([...DEFAULT_FLAGS, ...flagsDisponiveis, ...form.flags])];
   const openPayments = payments.filter(p => p.status !== 'Pago');
   const openTotal = openPayments.reduce((s, p) => s + p.valor, 0);
-  const timeline = (clientTimelines[client.id] || []).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const { jurosAcumulados, valorAtualizado } = calcularJuros(form.compensacao, form.diasAtraso);
 
-  const handleSave = () => {
-    Object.assign(client, {
-      compensacao: form.compensacao, juros: form.juros,
-      boletoVitbank: form.boletoVitbank, pixMonetali: form.pixMonetali,
-      diasAtraso: form.diasAtraso, parcelas: form.parcelas,
-      regional: form.regional, executivo: form.executivo,
-      situacao: form.situacao, flags: [...form.flags],
+  const handleSave = async () => {
+    const ok = await updateCliente(client.id, {
+      compensacao: form.compensacao,
+      juros: form.juros,
+      diasAtraso: form.diasAtraso,
+      parcelas: form.parcelas,
+      regional: form.regional,
+      executivo: form.executivo,
+      situacao: form.situacao,
+      flags: [...form.flags],
     });
-    clientPayments[client.id] = payments;
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    if (ok) {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    }
   };
 
   const toggleFlag = (flag: Flag) => {
@@ -87,7 +102,6 @@ const ClientDetail = ({ client, onBack }: Props) => {
   const addCustomFlag = () => {
     const flag = newFlagInput.trim();
     if (!flag || allAvailableFlags.includes(flag)) return;
-    customFlags.push(flag);
     setForm(prev => ({ ...prev, flags: [...prev.flags, flag] }));
     setNewFlagInput('');
   };
@@ -96,71 +110,49 @@ const ClientDetail = ({ client, onBack }: Props) => {
     setForm(prev => ({ ...prev, flags: prev.flags.filter(f => f !== flag) }));
   };
 
-  const updatePayment = (updated: Payment) => {
-    setPayments(prev => prev.map(p => p.id === updated.id ? updated : p));
+  const updatePayment = async (updated: Payment) => {
+    await updatePaymentDb(updated.id, updated);
     setEditingPayment(null);
   };
 
-  const cyclePaymentStatus = (p: Payment) => {
+  const cyclePaymentStatus = async (p: Payment) => {
     const order: PaymentStatus[] = ['Pendente', 'Parcial', 'Pago', 'Vencido'];
     const next = order[(order.indexOf(p.status) + 1) % order.length];
-    setPayments(prev => prev.map(x => x.id === p.id ? { ...x, status: next } : x));
+    await updatePaymentDb(p.id, { status: next });
   };
 
-  const registerParcelamento = (data: { valorTotal: number; numParcelas: number; valorPrimeira: number; dataPrimeira: string; jurosAplicado: number; desconto: number }) => {
+  const registerParcelamento = async (data: { valorTotal: number; numParcelas: number; valorPrimeira: number; dataPrimeira: string; jurosAplicado: number; desconto: number }) => {
     const valorComDesconto = data.valorTotal - data.desconto;
     const valorRestante = valorComDesconto - data.valorPrimeira;
     const valorDemais = data.numParcelas > 1 ? Math.round(valorRestante / (data.numParcelas - 1) * 100) / 100 : 0;
 
-    const newPayments: Payment[] = [];
     for (let i = 0; i < data.numParcelas; i++) {
       const d = new Date(data.dataPrimeira);
       d.setMonth(d.getMonth() + i);
-      newPayments.push({
-        id: `${client.id}-parc-${Date.now()}-${i}`,
+      await createPayment({
         valor: i === 0 ? data.valorPrimeira : valorDemais,
         dataVencimento: d.toISOString().split('T')[0],
         descricao: `Parcelamento ${i + 1}/${data.numParcelas}`,
         status: 'Pendente',
-      });
+      }, client.id);
     }
 
-    setPayments(prev => [...prev, ...newPayments]);
-
-    if (!clientTimelines[client.id]) clientTimelines[client.id] = [];
-    clientTimelines[client.id].push({
-      id: `tl-parc-${Date.now()}`,
-      clientId: client.id,
-      date: new Date().toISOString(),
-      type: 'payment',
-      description: `Parcelamento registrado: ${data.numParcelas}x de ${formatCurrency(data.valorPrimeira)} (desconto: ${formatCurrency(data.desconto)}, juros: ${data.jurosAplicado}%)`,
-      agent: form.executivo || 'Sistema',
-    });
-
-    newPayments.forEach(p => {
-      clientTimelines[client.id].push({
-        id: `tl-parcela-${p.id}`,
-        clientId: client.id,
-        date: p.dataVencimento + 'T00:00:00',
-        type: 'payment',
-        description: `${p.descricao} — ${formatCurrency(p.valor)}`,
-        agent: 'Sistema',
-      });
+    await createAtividade({
+      clienteId: client.id,
+      tipo: 'pagamento',
+      descricao: `Parcelamento registrado: ${data.numParcelas}x de ${formatCurrency(data.valorPrimeira)} (desconto: ${formatCurrency(data.desconto)}, juros: ${data.jurosAplicado}%)`,
+      criadoPor: form.executivo || 'Sistema',
     });
 
     setShowParcelamento(false);
   };
 
-  const handleEmailSent = (assunto: string) => {
-    if (!clientTimelines[client.id]) clientTimelines[client.id] = [];
-    const now = new Date();
-    clientTimelines[client.id].push({
-      id: `tl-email-${Date.now()}`,
-      clientId: client.id,
-      date: now.toISOString(),
-      type: 'email',
-      description: `Email de cobrança enviado em ${now.toLocaleDateString('pt-BR')} — assunto: ${assunto}`,
-      agent: form.executivo || 'Sistema',
+  const handleEmailSent = async (assunto: string) => {
+    await createAtividade({
+      clienteId: client.id,
+      tipo: 'email',
+      descricao: `Email de cobrança enviado — assunto: ${assunto}`,
+      criadoPor: form.executivo || 'Sistema',
     });
     setShowEmailModal(false);
   };
@@ -241,42 +233,48 @@ const ClientDetail = ({ client, onBack }: Props) => {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border/50 text-left">
-                <th className="px-4 py-2 font-semibold text-muted-foreground text-xs uppercase">Descrição</th>
-                <th className="px-4 py-2 font-semibold text-muted-foreground text-xs uppercase">Vencimento</th>
-                <th className="px-4 py-2 font-semibold text-muted-foreground text-xs uppercase">Valor</th>
-                <th className="px-4 py-2 font-semibold text-muted-foreground text-xs uppercase">Status</th>
-                <th className="px-4 py-2"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {payments.map(p => {
-                const style = PAYMENT_STATUS_STYLES[p.status];
-                const StatusIcon = style.icon;
-                return (
-                  <tr key={p.id} className="border-b border-border/30 hover:bg-secondary/30 transition-colors">
-                    <td className="px-4 py-2.5 font-medium">{p.descricao}</td>
-                    <td className="px-4 py-2.5 font-mono text-muted-foreground">{new Date(p.dataVencimento).toLocaleDateString('pt-BR')}</td>
-                    <td className="px-4 py-2.5 font-mono font-semibold">{formatCurrency(p.valor)}</td>
-                    <td className="px-4 py-2.5">
-                      <button onClick={() => cyclePaymentStatus(p)} className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors ${style.bg}`}>
-                        <StatusIcon className="h-3 w-3" /> {p.status}
-                      </button>
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <button onClick={() => setEditingPayment(p)} className="text-muted-foreground hover:text-primary transition-colors">
-                        <Edit2 className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        {loadingPay ? (
+          <div className="py-8 text-center text-muted-foreground text-sm">Carregando pagamentos...</div>
+        ) : payments.length === 0 ? (
+          <div className="py-8 text-center text-muted-foreground text-sm">Nenhum pagamento registrado.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border/50 text-left">
+                  <th className="px-4 py-2 font-semibold text-muted-foreground text-xs uppercase">Descrição</th>
+                  <th className="px-4 py-2 font-semibold text-muted-foreground text-xs uppercase">Vencimento</th>
+                  <th className="px-4 py-2 font-semibold text-muted-foreground text-xs uppercase">Valor</th>
+                  <th className="px-4 py-2 font-semibold text-muted-foreground text-xs uppercase">Status</th>
+                  <th className="px-4 py-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {payments.map(p => {
+                  const style = PAYMENT_STATUS_STYLES[p.status];
+                  const StatusIcon = style.icon;
+                  return (
+                    <tr key={p.id} className="border-b border-border/30 hover:bg-secondary/30 transition-colors">
+                      <td className="px-4 py-2.5 font-medium">{p.descricao}</td>
+                      <td className="px-4 py-2.5 font-mono text-muted-foreground">{new Date(p.dataVencimento).toLocaleDateString('pt-BR')}</td>
+                      <td className="px-4 py-2.5 font-mono font-semibold">{formatCurrency(p.valor)}</td>
+                      <td className="px-4 py-2.5">
+                        <button onClick={() => cyclePaymentStatus(p)} className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors ${style.bg}`}>
+                          <StatusIcon className="h-3 w-3" /> {p.status}
+                        </button>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <button onClick={() => setEditingPayment(p)} className="text-muted-foreground hover:text-primary transition-colors">
+                          <Edit2 className="h-4 w-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {editingPayment && (
           <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setEditingPayment(null)}>
@@ -332,7 +330,9 @@ const ClientDetail = ({ client, onBack }: Props) => {
       {/* TIMELINE */}
       <div className="glass-card p-6">
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2"><Calendar className="h-5 w-5 text-primary" /> Timeline</h3>
-        {timeline.length === 0 ? (
+        {loadingTimeline ? (
+          <div className="py-8 text-center text-muted-foreground text-sm">Carregando timeline...</div>
+        ) : timeline.length === 0 ? (
           <p className="text-muted-foreground text-sm">Nenhum registro.</p>
         ) : (
           <div className="space-y-0">
@@ -412,11 +412,12 @@ const EmailCobrancaModal = ({
   onClose: () => void;
   onSend: (assunto: string) => void;
 }) => {
-  const templates = premissas.templates;
+  // Use static templates (not in DB yet)
+  const templates = staticPremissas.templates;
   const [selectedTemplateId, setSelectedTemplateId] = useState(templates[0]?.id || '');
   const selectedTemplate = templates.find(t => t.id === selectedTemplateId);
 
-  const [destinatario, setDestinatario] = useState(premissas.emailRemetente);
+  const [destinatario, setDestinatario] = useState(staticPremissas.emailRemetente);
   const [assunto, setAssunto] = useState('');
   const [corpo, setCorpo] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
@@ -429,10 +430,9 @@ const EmailCobrancaModal = ({
     setCorpo(substituirVariaveis(template.corpo, client, openPaymentsCount, valorTotal));
   };
 
-  // Apply template on mount and when selection changes
-  useState(() => {
+  useEffect(() => {
     if (selectedTemplate) applyTemplate(selectedTemplate);
-  });
+  }, []);
 
   const handleTemplateChange = (id: string) => {
     setSelectedTemplateId(id);
@@ -445,7 +445,7 @@ const EmailCobrancaModal = ({
     if (file) setAnexoName(file.name);
   };
 
-  const handleSend = (scheduled: boolean) => {
+  const handleSend = () => {
     setSending(true);
     setTimeout(() => {
       onSend(assunto);
@@ -461,68 +461,37 @@ const EmailCobrancaModal = ({
           </h4>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="h-5 w-5" /></button>
         </div>
-
         <div className="p-5 space-y-4">
-          {/* Destinatário */}
           <div>
             <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Destinatário</label>
-            <input
-              type="email"
-              value={destinatario}
-              onChange={e => setDestinatario(e.target.value)}
-              className="w-full mt-1 px-3 py-2 bg-secondary/50 border border-border/50 rounded-lg text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary/50"
-              placeholder="email@empresa.com"
-            />
+            <input type="email" value={destinatario} onChange={e => setDestinatario(e.target.value)}
+              className="w-full mt-1 px-3 py-2 bg-secondary/50 border border-border/50 rounded-lg text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary/50" placeholder="email@empresa.com" />
           </div>
-
-          {/* Template selector */}
           <div>
             <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Template</label>
-            <select
-              value={selectedTemplateId}
-              onChange={e => handleTemplateChange(e.target.value)}
-              className="w-full mt-1 px-3 py-2 bg-secondary/50 border border-border/50 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary/50 text-foreground"
-            >
-              {templates.map(t => (
-                <option key={t.id} value={t.id}>{t.nome}</option>
-              ))}
+            <select value={selectedTemplateId} onChange={e => handleTemplateChange(e.target.value)}
+              className="w-full mt-1 px-3 py-2 bg-secondary/50 border border-border/50 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary/50 text-foreground">
+              {templates.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
             </select>
           </div>
-
-          {/* Assunto */}
           <div>
             <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Assunto</label>
-            <input
-              type="text"
-              value={assunto}
-              onChange={e => setAssunto(e.target.value)}
-              className="w-full mt-1 px-3 py-2 bg-secondary/50 border border-border/50 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
-            />
+            <input type="text" value={assunto} onChange={e => setAssunto(e.target.value)}
+              className="w-full mt-1 px-3 py-2 bg-secondary/50 border border-border/50 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary/50" />
           </div>
-
-          {/* Corpo */}
           <div>
             <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Corpo do Email</label>
-            <textarea
-              value={corpo}
-              onChange={e => setCorpo(e.target.value)}
-              rows={10}
-              className="w-full mt-1 px-3 py-2 bg-secondary/50 border border-border/50 rounded-lg text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary/50 resize-y"
-            />
+            <textarea value={corpo} onChange={e => setCorpo(e.target.value)} rows={10}
+              className="w-full mt-1 px-3 py-2 bg-secondary/50 border border-border/50 rounded-lg text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary/50 resize-y" />
           </div>
-
-          {/* Anexo + Link */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Anexo (PDF)</label>
               <div className="mt-1 relative">
                 <input type="file" accept=".pdf" onChange={handleFileSelect} className="hidden" id="email-anexo" />
-                <label htmlFor="email-anexo"
-                  className="flex items-center gap-2 px-3 py-2 bg-secondary/50 border border-border/50 rounded-lg text-sm cursor-pointer hover:bg-secondary/70 transition-colors">
+                <label htmlFor="email-anexo" className="flex items-center gap-2 px-3 py-2 bg-secondary/50 border border-border/50 rounded-lg text-sm cursor-pointer hover:bg-secondary/70 transition-colors">
                   <Upload className="h-4 w-4 text-muted-foreground" />
-                  <span className={anexoName ? 'text-foreground' : 'text-muted-foreground'}>
-                    {anexoName || 'Selecionar arquivo...'}
-                  </span>
+                  <span className={anexoName ? 'text-foreground' : 'text-muted-foreground'}>{anexoName || 'Selecionar arquivo...'}</span>
                 </label>
               </div>
             </div>
@@ -530,52 +499,29 @@ const EmailCobrancaModal = ({
               <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium flex items-center gap-1">
                 <LinkIcon className="h-3.5 w-3.5" /> Link (Omie/Portal)
               </label>
-              <input
-                type="url"
-                value={linkUrl}
-                onChange={e => setLinkUrl(e.target.value)}
-                placeholder="https://..."
-                className="w-full mt-1 px-3 py-2 bg-secondary/50 border border-border/50 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
-              />
+              <input type="url" value={linkUrl} onChange={e => setLinkUrl(e.target.value)} placeholder="https://..."
+                className="w-full mt-1 px-3 py-2 bg-secondary/50 border border-border/50 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary/50" />
             </div>
           </div>
-
-          {/* Agendar */}
           <div>
             <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Agendar Envio (opcional)</label>
-            <input
-              type="datetime-local"
-              value={scheduleDate}
-              onChange={e => setScheduleDate(e.target.value)}
-              className="w-full mt-1 px-3 py-2 bg-secondary/50 border border-border/50 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary/50"
-            />
+            <input type="datetime-local" value={scheduleDate} onChange={e => setScheduleDate(e.target.value)}
+              className="w-full mt-1 px-3 py-2 bg-secondary/50 border border-border/50 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary/50" />
           </div>
-
-          {/* Info badge */}
           <div className="p-3 bg-secondary/30 rounded-lg text-xs text-muted-foreground">
             <p><strong>Cliente:</strong> {client.nome} | <strong>CNPJ:</strong> {client.cnpj} | <strong>Atraso:</strong> {client.diasAtraso} dias | <strong>Valor:</strong> {formatCurrency(valorTotal)}</p>
           </div>
         </div>
-
-        {/* Actions */}
         <div className="flex items-center justify-end gap-3 p-5 border-t border-border/50">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
-            Cancelar
-          </button>
+          <button onClick={onClose} className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors">Cancelar</button>
           {scheduleDate && (
-            <button
-              onClick={() => handleSend(true)}
-              disabled={sending || !assunto || !corpo}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-secondary text-foreground border border-border hover:bg-secondary/80 transition-colors disabled:opacity-50"
-            >
+            <button onClick={handleSend} disabled={sending || !assunto || !corpo}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-secondary text-foreground border border-border hover:bg-secondary/80 transition-colors disabled:opacity-50">
               <Clock className="h-4 w-4" /> Agendar envio
             </button>
           )}
-          <button
-            onClick={() => handleSend(false)}
-            disabled={sending || !assunto || !corpo}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
-          >
+          <button onClick={handleSend} disabled={sending || !assunto || !corpo}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50">
             <Send className="h-4 w-4" /> {sending ? 'Enviando...' : 'Enviar agora'}
           </button>
         </div>

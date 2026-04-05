@@ -1,43 +1,54 @@
 import { useState } from 'react';
 import { ClipboardList, Plus } from 'lucide-react';
-import { clients, collectionEvents, CollectionEvent } from '@/data/mockData';
+import { CollectionEvent } from '@/data/mockData';
+import { useClientes } from '@/hooks/useClientes';
+import { useAtividades } from '@/hooks/useAtividades';
+import LoadingSkeleton from '@/components/LoadingSkeleton';
 import { toast } from 'sonner';
 
 const activityTypes = [
-  { value: 'email', label: 'Email Enviado' },
-  { value: 'phone', label: 'Ligação Feita' },
-  { value: 'meeting', label: 'WhatsApp Enviado' },
+  { value: 'email', label: 'Email Enviado', dbTipo: 'email' as const },
+  { value: 'phone', label: 'Ligação Feita', dbTipo: 'comentario' as const },
+  { value: 'meeting', label: 'WhatsApp Enviado', dbTipo: 'comentario' as const },
 ] as const;
 
 const AtividadesPage = () => {
-  const [activities, setActivities] = useState<CollectionEvent[]>([...collectionEvents]);
+  const { data: clients, loading: loadingClients } = useClientes();
+  const { events: activities, loading: loadingActivities, create: createAtividade } = useAtividades();
+
   const [form, setForm] = useState({
     clientId: '',
-    type: 'email' as CollectionEvent['type'],
+    type: 'email' as string,
     date: new Date().toISOString().split('T')[0],
     description: '',
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.clientId) {
       toast.error('Selecione um cliente.');
       return;
     }
     const client = clients.find(c => c.id === form.clientId);
-    const newEvent: CollectionEvent = {
-      id: String(Date.now()),
-      clientId: form.clientId,
-      date: form.date,
-      type: form.type,
-      description: form.description || `${activityTypes.find(t => t.value === form.type)?.label} para ${client?.nome}`,
-      agent: 'Usuário',
-    };
-    collectionEvents.push(newEvent);
-    setActivities(prev => [newEvent, ...prev]);
-    setForm({ clientId: '', type: 'email', date: new Date().toISOString().split('T')[0], description: '' });
-    toast.success('Atividade registrada com sucesso!');
+    const actType = activityTypes.find(t => t.value === form.type);
+    const descricao = form.description || `${actType?.label} para ${client?.nome}`;
+
+    const ok = await createAtividade({
+      clienteId: form.clientId,
+      tipo: actType?.dbTipo || 'comentario',
+      descricao,
+      criadoPor: 'Usuário',
+    });
+
+    if (ok) {
+      setForm({ clientId: '', type: 'email', date: new Date().toISOString().split('T')[0], description: '' });
+      toast.success('Atividade registrada com sucesso!');
+    } else {
+      toast.error('Erro ao registrar atividade.');
+    }
   };
+
+  if (loadingClients || loadingActivities) return <LoadingSkeleton />;
 
   const sorted = [...activities].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   const inputClass = "w-full bg-secondary/50 border border-border/50 rounded-lg text-sm px-3 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50";
@@ -65,7 +76,7 @@ const AtividadesPage = () => {
           </div>
           <div>
             <label className={labelClass}>Tipo</label>
-            <select className={inputClass} value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value as CollectionEvent['type'] }))}>
+            <select className={inputClass} value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
               {activityTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
           </div>

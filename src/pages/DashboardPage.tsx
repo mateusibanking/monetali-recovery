@@ -1,8 +1,9 @@
-import { useState } from 'react';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { clients as allClients, situacaoLabels, formatCurrency, Situacao } from '@/data/mockData';
+import { AlertCircle } from 'lucide-react';
+import { situacaoLabels, formatCurrency, Situacao } from '@/data/mockData';
+import { useDashboard } from '@/hooks/useDashboard';
 import KpiCards from '@/components/KpiCards';
-import MonthSelector from '@/components/MonthSelector';
+import LoadingSkeleton from '@/components/LoadingSkeleton';
 
 const COLORS_STATUS: Record<Situacao, string> = {
   'COBRANÇA OK': '#22c55e',
@@ -13,54 +14,60 @@ const COLORS_STATUS: Record<Situacao, string> = {
 };
 
 const AGING_COLORS = ['#316AB4', '#D4A843', '#ef4444', '#0D2C60'];
-const AGING_RANGES = ['0–30', '31–60', '61–90', '90+'];
 
 const DashboardPage = () => {
-  const [selectedMonth, setSelectedMonth] = useState('2026-04');
+  const { data: dashboard, loading, error } = useDashboard();
 
-  const clients = allClients.filter(c => c.mes_referencia === selectedMonth);
+  if (loading) return <LoadingSkeleton />;
 
-  const statusData = (Object.keys(situacaoLabels) as Situacao[]).map(s => ({
-    name: situacaoLabels[s],
-    value: clients.filter(c => c.situacao === s).length,
-    color: COLORS_STATUS[s],
+  if (error) {
+    return (
+      <div className="glass-card p-12 flex flex-col items-center justify-center text-center">
+        <AlertCircle className="h-10 w-10 text-destructive mb-4" />
+        <h3 className="text-lg font-semibold mb-2">Erro ao carregar dashboard</h3>
+        <p className="text-sm text-muted-foreground">{error}</p>
+      </div>
+    );
+  }
+
+  const { clients, porStatus, porRegional, porExecutivo, aging } = dashboard;
+
+  const statusData = porStatus.map(s => ({
+    name: situacaoLabels[s.situacao] || s.name,
+    value: s.value,
+    color: COLORS_STATUS[s.situacao] || '#6b7280',
   })).filter(d => d.value > 0);
 
-  const agingData = AGING_RANGES.map((label, i) => {
-    const count = clients.filter(c => {
-      if (i === 0) return c.diasAtraso >= 0 && c.diasAtraso <= 30;
-      if (i === 1) return c.diasAtraso >= 31 && c.diasAtraso <= 60;
-      if (i === 2) return c.diasAtraso >= 61 && c.diasAtraso <= 90;
-      return c.diasAtraso > 90;
-    }).length;
-    return { faixa: label, clientes: count };
-  });
+  const regionalData = porRegional;
 
-  const regionais = [...new Set(clients.map(c => c.regional))];
-  const regionalData = regionais.map(r => ({
-    regional: r,
-    total: clients.filter(c => c.regional === r).reduce((s, c) => s + c.compensacao, 0),
-  })).sort((a, b) => b.total - a.total);
-
-  const executivos = [...new Set(clients.map(c => c.executivo))];
-  const execData = executivos.map(e => ({
-    executivo: e.split(' ')[0],
-    valor: clients.filter(c => c.executivo === e).reduce((s, c) => s + c.compensacao, 0),
-  })).sort((a, b) => b.valor - a.valor).slice(0, 10);
+  const execData = porExecutivo.map(e => ({
+    executivo: e.executivo.split(' ')[0],
+    valor: e.valor,
+  }));
 
   const tooltipStyle = {
     contentStyle: { background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12, color: '#333' },
     labelStyle: { color: '#6b7280' },
   };
 
+  const hasData = clients.length > 0;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h2 className="text-xl font-bold font-display">Dashboard</h2>
-        <MonthSelector selected={selectedMonth} onChange={setSelectedMonth} />
       </div>
       <KpiCards clients={clients} />
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {!hasData && (
+        <div className="glass-card p-12 flex flex-col items-center justify-center text-center">
+          <div className="w-14 h-14 rounded-full bg-muted/50 flex items-center justify-center mb-4">
+            <AlertCircle className="h-7 w-7 text-muted-foreground" />
+          </div>
+          <h3 className="text-lg font-semibold mb-2">Sem dados</h3>
+          <p className="text-sm text-muted-foreground max-w-md">Importe dados na página de Importação para começar.</p>
+        </div>
+      )}
+      {hasData && <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="glass-card p-5" style={{ minHeight: 400 }}>
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4 font-display">Distribuição por Status</h3>
           <ResponsiveContainer width="100%" height={340}>
@@ -76,12 +83,12 @@ const DashboardPage = () => {
         <div className="glass-card p-5">
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4 font-display">Aging por Faixa de Atraso</h3>
           <ResponsiveContainer width="100%" height={320}>
-            <BarChart data={agingData} barSize={40}>
+            <BarChart data={aging} barSize={40}>
               <XAxis dataKey="faixa" tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} allowDecimals={false} />
               <Tooltip {...tooltipStyle} />
               <Bar dataKey="clientes" radius={[6, 6, 0, 0]}>
-                {agingData.map((_, i) => <Cell key={i} fill={AGING_COLORS[i]} />)}
+                {aging.map((_, i) => <Cell key={i} fill={AGING_COLORS[i]} />)}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
@@ -108,7 +115,7 @@ const DashboardPage = () => {
             </BarChart>
           </ResponsiveContainer>
         </div>
-      </div>
+      </div>}
     </div>
   );
 };
