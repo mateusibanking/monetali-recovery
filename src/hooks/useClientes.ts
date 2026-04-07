@@ -75,8 +75,26 @@ export function useClientes(filters?: UseClientesFilters): UseClientesReturn {
         }
       }
 
+      // Fetch vitbank/monetali aggregates from pagamentos_atraso
+      let vitbankMap: Record<string, number> = {};
+      let monetaliMap: Record<string, number> = {};
+      if (clienteIds.length > 0) {
+        const { data: pagSums } = await supabase
+          .from('pagamentos_atraso')
+          .select('cliente_id, vitbank, monetali')
+          .in('cliente_id', clienteIds)
+          .is('deleted_at', null);
+
+        if (pagSums) {
+          (pagSums as { cliente_id: string; vitbank: number | null; monetali: number | null }[]).forEach(p => {
+            vitbankMap[p.cliente_id] = (vitbankMap[p.cliente_id] || 0) + (Number(p.vitbank) || 0);
+            monetaliMap[p.cliente_id] = (monetaliMap[p.cliente_id] || 0) + (Number(p.monetali) || 0);
+          });
+        }
+      }
+
       const mapped = (clientes as DbCliente[]).map(c =>
-        mapDbClienteToClient(c, flagsMap[c.id] || [])
+        mapDbClienteToClient(c, flagsMap[c.id] || [], undefined, vitbankMap[c.id] || 0, monetaliMap[c.id] || 0)
       );
 
       setData(mapped);
@@ -109,7 +127,18 @@ export function useClientes(filters?: UseClientesFilters): UseClientesReturn {
         .eq('cliente_id', id);
 
       const flagNames = (flags || []).map((f: any) => f.nome_flag);
-      return mapDbClienteToClient(row as DbCliente, flagNames);
+
+      // Aggregate vitbank/monetali for this client
+      const { data: pagSums } = await supabase
+        .from('pagamentos_atraso')
+        .select('vitbank, monetali')
+        .eq('cliente_id', id)
+        .is('deleted_at', null);
+
+      const vitbankTotal = (pagSums || []).reduce((s: number, p: any) => s + (Number(p.vitbank) || 0), 0);
+      const monetaliTotal = (pagSums || []).reduce((s: number, p: any) => s + (Number(p.monetali) || 0), 0);
+
+      return mapDbClienteToClient(row as DbCliente, flagNames, undefined, vitbankTotal, monetaliTotal);
     } catch (err: any) {
       console.error('useClientes getById error:', err);
       return null;

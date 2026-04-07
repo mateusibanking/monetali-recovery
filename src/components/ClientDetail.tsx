@@ -76,6 +76,11 @@ const ClientDetail = ({ client, onBack }: Props) => {
   const openPayments = payments.filter(p => p.status !== 'Pago');
   const openTotal = openPayments.reduce((s, p) => s + p.valor, 0);
 
+  // Aggregate totals from payment breakdown
+  const totalVitbank = payments.reduce((s, p) => s + (p.vitbank || 0), 0);
+  const totalMonetali = payments.reduce((s, p) => s + (p.monetali || 0), 0);
+  const totalJuros = payments.reduce((s, p) => s + (p.juros || 0), 0);
+
   const { jurosAcumulados, valorAtualizado } = calcularJuros(form.compensacao, form.diasAtraso);
 
   const handleSave = async () => {
@@ -233,39 +238,93 @@ const ClientDetail = ({ client, onBack }: Props) => {
           </div>
         </div>
 
+        {/* Summary totals */}
+        {payments.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+            <div className="bg-secondary/40 rounded-lg p-3 text-center">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Total VitBank</p>
+              <p className="text-sm font-bold font-mono text-partial">{formatCurrency(totalVitbank)}</p>
+            </div>
+            <div className="bg-secondary/40 rounded-lg p-3 text-center">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Total Monetali</p>
+              <p className="text-sm font-bold font-mono text-recovered">{formatCurrency(totalMonetali)}</p>
+            </div>
+            <div className="bg-secondary/40 rounded-lg p-3 text-center">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Total Juros</p>
+              <p className="text-sm font-bold font-mono text-negotiation">{formatCurrency(totalJuros)}</p>
+            </div>
+            <div className="bg-secondary/40 rounded-lg p-3 text-center">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Total Geral</p>
+              <p className="text-sm font-bold font-mono text-overdue">{formatCurrency(totalVitbank + totalMonetali + totalJuros)}</p>
+            </div>
+          </div>
+        )}
+
         {loadingPay ? (
           <div className="py-8 text-center text-muted-foreground text-sm">Carregando pagamentos...</div>
         ) : payments.length === 0 ? (
           <div className="py-8 text-center text-muted-foreground text-sm">Nenhum pagamento registrado.</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-xs">
               <thead>
-                <tr className="border-b border-border/50 text-left">
-                  <th className="px-4 py-2 font-semibold text-muted-foreground text-xs uppercase">Descrição</th>
-                  <th className="px-4 py-2 font-semibold text-muted-foreground text-xs uppercase">Vencimento</th>
-                  <th className="px-4 py-2 font-semibold text-muted-foreground text-xs uppercase">Valor</th>
-                  <th className="px-4 py-2 font-semibold text-muted-foreground text-xs uppercase">Status</th>
-                  <th className="px-4 py-2"></th>
+                <tr className="border-b border-border/50 text-left bg-secondary/20">
+                  <th className="px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider">Mês Ref.</th>
+                  <th className="px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-right">Compensação</th>
+                  <th className="px-3 py-2 font-semibold text-partial uppercase tracking-wider text-right">VitBank</th>
+                  <th className="px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-right hidden lg:table-cell">Vcto VB</th>
+                  <th className="px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-right hidden lg:table-cell">Pgto VB</th>
+                  <th className="px-3 py-2 font-semibold text-recovered uppercase tracking-wider text-right">Monetali</th>
+                  <th className="px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-right hidden lg:table-cell">Vcto Mon.</th>
+                  <th className="px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-right hidden lg:table-cell">Pgto Mon.</th>
+                  <th className="px-3 py-2 font-semibold text-negotiation uppercase tracking-wider text-right">Juros</th>
+                  <th className="px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
+                  <th className="px-3 py-2"></th>
                 </tr>
               </thead>
               <tbody>
                 {payments.map(p => {
                   const style = PAYMENT_STATUS_STYLES[p.status];
                   const StatusIcon = style.icon;
+                  const fmtDate = (d: string | null | undefined) =>
+                    d ? new Date(d).toLocaleDateString('pt-BR') : '—';
                   return (
                     <tr key={p.id} className="border-b border-border/30 hover:bg-secondary/30 transition-colors">
-                      <td className="px-4 py-2.5 font-medium">{p.descricao}</td>
-                      <td className="px-4 py-2.5 font-mono text-muted-foreground">{new Date(p.dataVencimento).toLocaleDateString('pt-BR')}</td>
-                      <td className="px-4 py-2.5 font-mono font-semibold">{formatCurrency(p.valor)}</td>
-                      <td className="px-4 py-2.5">
-                        <button onClick={() => cyclePaymentStatus(p)} className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-colors ${style.bg}`}>
+                      <td className="px-3 py-2.5 font-mono text-muted-foreground whitespace-nowrap">
+                        {p.mesReferencia || fmtDate(p.dataVencimento)}
+                      </td>
+                      <td className="px-3 py-2.5 font-mono font-semibold text-right">
+                        {formatCurrency(p.valorCompensacao || p.valor || 0)}
+                      </td>
+                      <td className="px-3 py-2.5 font-mono font-semibold text-right text-partial">
+                        {(p.vitbank || 0) > 0 ? formatCurrency(p.vitbank!) : <span className="text-muted-foreground">—</span>}
+                      </td>
+                      <td className="px-3 py-2.5 font-mono text-muted-foreground text-right hidden lg:table-cell whitespace-nowrap">
+                        {fmtDate(p.vctoVitbank)}
+                      </td>
+                      <td className="px-3 py-2.5 font-mono text-muted-foreground text-right hidden lg:table-cell whitespace-nowrap">
+                        {fmtDate(p.pgtoVitbank)}
+                      </td>
+                      <td className="px-3 py-2.5 font-mono font-semibold text-right text-recovered">
+                        {(p.monetali || 0) > 0 ? formatCurrency(p.monetali!) : <span className="text-muted-foreground">—</span>}
+                      </td>
+                      <td className="px-3 py-2.5 font-mono text-muted-foreground text-right hidden lg:table-cell whitespace-nowrap">
+                        {fmtDate(p.vctoMonetali)}
+                      </td>
+                      <td className="px-3 py-2.5 font-mono text-muted-foreground text-right hidden lg:table-cell whitespace-nowrap">
+                        {fmtDate(p.pgtoMonetali)}
+                      </td>
+                      <td className="px-3 py-2.5 font-mono text-right text-negotiation">
+                        {(p.juros || 0) > 0 ? formatCurrency(p.juros!) : <span className="text-muted-foreground">—</span>}
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <button onClick={() => cyclePaymentStatus(p)} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border transition-colors ${style.bg}`}>
                           <StatusIcon className="h-3 w-3" /> {p.status}
                         </button>
                       </td>
-                      <td className="px-4 py-2.5">
+                      <td className="px-3 py-2.5">
                         <button onClick={() => setEditingPayment(p)} className="text-muted-foreground hover:text-primary transition-colors">
-                          <Edit2 className="h-4 w-4" />
+                          <Edit2 className="h-3.5 w-3.5" />
                         </button>
                       </td>
                     </tr>

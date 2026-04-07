@@ -10,6 +10,18 @@ export interface Payment {
   dataVencimento: string;
   descricao: string;
   status: PaymentStatus;
+  // Breakdown fields from DB
+  vitbank?: number;
+  vctoVitbank?: string | null;
+  pgtoVitbank?: string | null;
+  monetali?: number;
+  vctoMonetali?: string | null;
+  pgtoMonetali?: string | null;
+  imposto?: number;
+  valorCompensacao?: number;
+  juros?: number;
+  mesReferencia?: string | null;
+  dataCobranca?: string | null;
 }
 
 export interface TimelineEvent {

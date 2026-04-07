@@ -19,8 +19,8 @@ const KpiCards = ({ clients: clientsProp }: KpiCardsProps) => {
 
   const kpis = [
     { label: 'Total Compensação', value: formatCurrency(totalCompensacao), icon: DollarSign, color: 'text-overdue' },
-    { label: 'Total Boleto VitBank', value: formatCurrency(totalBoleto), icon: CreditCard, color: 'text-partial' },
-    { label: 'Total PIX Monetali', value: formatCurrency(totalPix), icon: Smartphone, color: 'text-recovered' },
+    { label: 'Total VitBank', value: formatCurrency(totalBoleto), icon: CreditCard, color: 'text-partial' },
+    { label: 'Total Monetali', value: formatCurrency(totalPix), icon: Smartphone, color: 'text-recovered' },
     { label: 'Total Juros', value: formatCurrency(totalJuros), icon: TrendingUp, color: 'text-negotiation' },
     { label: 'Não Pagos', value: naoPagos.toString(), icon: AlertTriangle, color: 'text-legal' },
     { label: 'Crítico (>90d)', value: criticalCount.toString(), icon: Users, color: 'text-overdue' },

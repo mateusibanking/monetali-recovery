@@ -29,7 +29,7 @@ const AGING_RANGES = [
 type ColumnKey = 'cliente' | 'regional' | 'executivo' | 'compensacao' | 'boletoVB' | 'pixMon' | 'dias' | 'situacao' | 'flags';
 const columnLabels: Record<ColumnKey, string> = {
   cliente: 'Cliente', regional: 'Regional', executivo: 'Executivo', compensacao: 'Compensação',
-  boletoVB: 'Boleto VB', pixMon: 'PIX Mon', dias: 'Dias', situacao: 'Situação', flags: 'Flags',
+  boletoVB: 'VitBank', pixMon: 'Monetali', dias: 'Dias', situacao: 'Situação', flags: 'Flags',
 };
 
 const DEFAULT_FLAGS: Flag[] = ['Prioridade', 'Juros', 'Sem Contato', 'Jurídico', 'Parcelamento', 'Promessa de Pgto'];
@@ -280,8 +280,8 @@ const ClientTable = ({ onSelectClient }: Props) => {
                 {show('regional') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider hidden lg:table-cell">Regional</th>}
                 {show('executivo') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider hidden md:table-cell">Executivo</th>}
                 {show('compensacao') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider text-right">Compensação</th>}
-                {show('boletoVB') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider hidden md:table-cell text-right">Boleto VB</th>}
-                {show('pixMon') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider hidden md:table-cell text-right">PIX Mon</th>}
+                {show('boletoVB') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider hidden md:table-cell text-right">VitBank</th>}
+                {show('pixMon') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider hidden md:table-cell text-right">Monetali</th>}
                 {show('dias') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider hidden sm:table-cell text-right">Dias</th>}
                 {show('situacao') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Situação</th>}
                 {show('flags') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider hidden xl:table-cell">Flags</th>}

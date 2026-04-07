@@ -42,6 +42,18 @@ export interface DbPagamento {
   data_pagamento: string | null;
   forma_pagamento: string | null;
   mes_referencia: string | null;
+  // VitBank / Monetali breakdown
+  imposto: number | null;
+  valor_compensacao: number | null;
+  juros: number | null;
+  vitbank: number | null;
+  vcto_vitbank: string | null;
+  pgto_vitbank: string | null;
+  monetali: number | null;
+  vcto_monetali: string | null;
+  pgto_monetali: string | null;
+  data_cobranca: string | null;
+  motivo: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -131,6 +143,8 @@ export function mapDbClienteToClient(
   row: DbCliente,
   flags: string[] = [],
   mesReferencia: string = new Date().toISOString().slice(0, 7),
+  boletoVitbank: number = 0,
+  pixMonetali: number = 0,
 ): Client {
   return {
     id: row.id,
@@ -140,8 +154,8 @@ export function mapDbClienteToClient(
     executivo: row.executivo_responsavel || '',
     compensacao: Number(row.valor_total_atraso) || 0,
     juros: 0,  // computed from pagamentos if needed
-    boletoVitbank: 0,  // not in DB yet
-    pixMonetali: 0,    // not in DB yet
+    boletoVitbank,
+    pixMonetali,
     diasAtraso: row.dias_atraso_max || 0,
     parcelas: row.qtd_pagamentos_atraso || 0,
     situacao: dbStatusToSituacao[row.status] || 'NÃO PAGO',
@@ -183,6 +197,17 @@ export function mapDbPagamentoToPayment(row: DbPagamento): Payment {
     dataVencimento: row.data_vencimento,
     descricao: row.descricao || `Pagamento`,
     status: dbPaymentStatusToFrontend[row.status] || 'Pendente',
+    vitbank: Number(row.vitbank) || 0,
+    vctoVitbank: row.vcto_vitbank || null,
+    pgtoVitbank: row.pgto_vitbank || null,
+    monetali: Number(row.monetali) || 0,
+    vctoMonetali: row.vcto_monetali || null,
+    pgtoMonetali: row.pgto_monetali || null,
+    imposto: Number(row.imposto) || 0,
+    valorCompensacao: Number(row.valor_compensacao) || 0,
+    juros: Number(row.juros) || 0,
+    mesReferencia: row.mes_referencia || null,
+    dataCobranca: row.data_cobranca || null,
   };
 }
 

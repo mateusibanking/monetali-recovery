@@ -74,8 +74,26 @@ export function useDashboard(): UseDashboardReturn {
         }
       }
 
+      // Aggregate vitbank/monetali per client from pagamentos_atraso
+      let vitbankMap: Record<string, number> = {};
+      let monetaliMap: Record<string, number> = {};
+      if (clienteIds.length > 0) {
+        const { data: pagSums } = await supabase
+          .from('pagamentos_atraso')
+          .select('cliente_id, vitbank, monetali')
+          .in('cliente_id', clienteIds)
+          .is('deleted_at', null);
+
+        if (pagSums) {
+          (pagSums as { cliente_id: string; vitbank: number | null; monetali: number | null }[]).forEach(p => {
+            vitbankMap[p.cliente_id] = (vitbankMap[p.cliente_id] || 0) + (Number(p.vitbank) || 0);
+            monetaliMap[p.cliente_id] = (monetaliMap[p.cliente_id] || 0) + (Number(p.monetali) || 0);
+          });
+        }
+      }
+
       const clients = (clientes as DbCliente[]).map(c =>
-        mapDbClienteToClient(c, flagsMap[c.id] || [])
+        mapDbClienteToClient(c, flagsMap[c.id] || [], undefined, vitbankMap[c.id] || 0, monetaliMap[c.id] || 0)
       );
 
       // Fetch recuperacoes
