@@ -1,25 +1,41 @@
 import { useState } from 'react';
-import { formatCurrency } from '@/data/mockData';
+import { formatCurrency, Situacao, situacaoLabels } from '@/data/mockData';
 import { useClientes } from '@/hooks/useClientes';
 import StatusBadge from '@/components/StatusBadge';
 import MonthSelector, { DEFAULT_MONTH } from '@/components/MonthSelector';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
-import { CheckCircle, DollarSign, TrendingUp, Percent } from 'lucide-react';
+import { CheckCircle, DollarSign, TrendingUp, Percent, Filter } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+
+const STATUS_FILTERS: { value: string; label: string }[] = [
+  { value: 'todos', label: 'Todos os Status' },
+  { value: 'COBRANÇA OK', label: 'Pago' },
+  { value: 'COBRANÇA EM ANDAMENTO', label: 'Cobrança em Andamento' },
+  { value: 'NÃO PAGO', label: 'Não Pago' },
+  { value: 'PARCELADO', label: 'Parcelado' },
+  { value: 'DISTRATO', label: 'Distrato' },
+];
 
 const RecuperacoesPage = () => {
   const [selectedMonth, setSelectedMonth] = useState(DEFAULT_MONTH);
+  const [statusFilter, setStatusFilter] = useState('todos');
   const { data: clients, loading, error } = useClientes();
 
   if (loading) return <LoadingSkeleton />;
   if (error) return <div className="glass-card p-12 text-center text-destructive">{error}</div>;
 
-  const parcelados = clients.filter(c => c.situacao === 'PARCELADO');
-  const cobrancaAndamento = clients.filter(c => c.situacao === 'COBRANÇA EM ANDAMENTO');
+  const filteredByStatus = statusFilter === 'todos'
+    ? clients
+    : clients.filter(c => c.situacao === statusFilter);
 
+  const parcelados = filteredByStatus.filter(c => c.situacao === 'PARCELADO');
+  const cobrancaAndamento = filteredByStatus.filter(c => c.situacao === 'COBRANÇA EM ANDAMENTO');
+
+  const pagos = filteredByStatus.filter(c => c.situacao === 'COBRANÇA OK');
+  const totalPago = pagos.reduce((s, c) => s + c.compensacao, 0);
   const totalRecuperado = cobrancaAndamento.reduce((s, c) => s + c.compensacao, 0);
   const totalParcelamento = parcelados.reduce((s, c) => s + c.compensacao, 0);
-  const taxaRecuperacao = clients.length > 0 ? ((cobrancaAndamento.length / clients.length) * 100).toFixed(1) : '0';
+  const taxaRecuperacao = clients.length > 0 ? ((pagos.length / clients.length) * 100).toFixed(1) : '0';
 
   const execMap = new Map<string, number>();
   cobrancaAndamento.forEach(c => {
@@ -30,9 +46,10 @@ const RecuperacoesPage = () => {
     .sort((a, b) => b.valor - a.valor);
 
   const stats = [
+    { label: 'Total Pago', value: formatCurrency(totalPago), icon: CheckCircle, color: 'text-[#166534]' },
     { label: 'Total em Cobrança', value: formatCurrency(totalRecuperado), icon: DollarSign, color: 'text-link' },
     { label: 'Em Parcelamento', value: formatCurrency(totalParcelamento), icon: TrendingUp, color: 'text-accent' },
-    { label: 'Taxa Cobrança em Andamento', value: `${taxaRecuperacao}%`, icon: Percent, color: 'text-primary' },
+    { label: 'Taxa de Recuperação', value: `${taxaRecuperacao}%`, icon: Percent, color: 'text-primary' },
   ];
 
   const tooltipStyle = {
@@ -44,10 +61,24 @@ const RecuperacoesPage = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h2 className="text-xl font-bold font-display">Recuperações & Parcelamentos</h2>
-        <MonthSelector selected={selectedMonth} onChange={setSelectedMonth} showTodos />
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
+            <select
+              value={statusFilter}
+              onChange={e => setStatusFilter(e.target.value)}
+              className="bg-secondary/50 border border-border/50 rounded-lg text-sm px-3 py-2 text-foreground font-medium focus:outline-none focus:ring-1 focus:ring-primary/50 cursor-pointer min-w-[180px]"
+            >
+              {STATUS_FILTERS.map(f => (
+                <option key={f.value} value={f.value}>{f.label}</option>
+              ))}
+            </select>
+          </div>
+          <MonthSelector selected={selectedMonth} onChange={setSelectedMonth} showTodos />
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((s) => (
           <div key={s.label} className="glass-card p-5 group hover:border-primary/30 transition-all duration-300">
             <div className="flex items-center justify-between mb-3">
@@ -98,7 +129,32 @@ const RecuperacoesPage = () => {
         </div>
       </div>
 
-      {cobrancaAndamento.length > 0 && (
+      {pagos.length > 0 && (statusFilter === 'todos' || statusFilter === 'COBRANÇA OK') && (
+        <div>
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 font-display">Pagos ({pagos.length})</h3>
+          <div className="grid gap-3">
+            {pagos.map(client => (
+              <div key={client.id} className="glass-card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-[#86efac33] flex items-center justify-center shrink-0">
+                    <CheckCircle className="h-4 w-4 text-[#166534]" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm">{client.nome}</p>
+                    <p className="text-xs text-muted-foreground">{client.regional} · {client.executivo}</p>
+                    <p className="text-xs font-mono text-muted-foreground mt-0.5">
+                      Comp: {formatCurrency(client.compensacao)}
+                    </p>
+                  </div>
+                </div>
+                <StatusBadge status={client.situacao} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {cobrancaAndamento.length > 0 && (statusFilter === 'todos' || statusFilter === 'COBRANÇA EM ANDAMENTO') && (
         <div>
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 font-display">Cobrança em Andamento ({cobrancaAndamento.length})</h3>
           <div className="grid gap-3">

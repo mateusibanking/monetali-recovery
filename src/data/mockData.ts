@@ -131,7 +131,7 @@ export const formatCurrency = (value: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
 export const situacaoLabels: Record<Situacao, string> = {
-  'COBRANÇA OK': 'Cobrança OK',
+  'COBRANÇA OK': 'Pago',
   'COBRANÇA EM ANDAMENTO': 'Cobrança em Andamento',
   'NÃO PAGO': 'Não Pago',
   'PARCELADO': 'Parcelado',
@@ -139,7 +139,7 @@ export const situacaoLabels: Record<Situacao, string> = {
 };
 
 export const situacaoColors: Record<Situacao, string> = {
-  'COBRANÇA OK': 'status-partial',
+  'COBRANÇA OK': 'status-pago',
   'COBRANÇA EM ANDAMENTO': 'status-partial',
   'NÃO PAGO': 'status-overdue',
   'PARCELADO': 'status-negotiation',
