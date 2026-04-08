@@ -29,7 +29,7 @@ const AGING_RANGES = [
   { label: '90+', min: 91, max: Infinity },
 ];
 
-export function useDashboard(): UseDashboardReturn {
+export function useDashboard(mesReferencia?: string): UseDashboardReturn {
   const [data, setData] = useState<DashboardData>({
     clients: [],
     totalAtraso: 0,
@@ -43,12 +43,14 @@ export function useDashboard(): UseDashboardReturn {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const isFiltered = mesReferencia && mesReferencia !== 'todos';
+
   const fetchDashboard = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Fetch all active clients
+      // Fetch all active clients (always unfiltered for base data + aging)
       const { data: clientes, error: errC } = await supabase
         .from('clientes')
         .select('*')
@@ -74,27 +76,64 @@ export function useDashboard(): UseDashboardReturn {
         }
       }
 
-      // Aggregate vitbank/monetali per client from pagamentos_atraso
+      // Fetch pagamentos — filtered by mes_referencia when a specific month is selected
+      type PagRow = {
+        cliente_id: string;
+        vitbank: number | null;
+        monetali: number | null;
+        valor_compensacao: number | null;
+        juros: number | null;
+      };
       let vitbankMap: Record<string, number> = {};
       let monetaliMap: Record<string, number> = {};
+      let compensacaoMap: Record<string, number> = {};
+      let jurosMap: Record<string, number> = {};
+      const clientsWithPayments = new Set<string>();
+
       if (clienteIds.length > 0) {
-        const { data: pagSums } = await supabase
+        let pagQuery = supabase
           .from('pagamentos_atraso')
-          .select('cliente_id, vitbank, monetali')
+          .select('cliente_id, vitbank, monetali, valor_compensacao, juros')
           .in('cliente_id', clienteIds)
           .is('deleted_at', null);
 
+        if (isFiltered) {
+          pagQuery = pagQuery.eq('mes_referencia', mesReferencia);
+        }
+
+        const { data: pagSums } = await pagQuery;
+
         if (pagSums) {
-          (pagSums as { cliente_id: string; vitbank: number | null; monetali: number | null }[]).forEach(p => {
+          (pagSums as PagRow[]).forEach(p => {
+            clientsWithPayments.add(p.cliente_id);
             vitbankMap[p.cliente_id] = (vitbankMap[p.cliente_id] || 0) + (Number(p.vitbank) || 0);
             monetaliMap[p.cliente_id] = (monetaliMap[p.cliente_id] || 0) + (Number(p.monetali) || 0);
+            compensacaoMap[p.cliente_id] = (compensacaoMap[p.cliente_id] || 0) + (Number(p.valor_compensacao) || 0);
+            jurosMap[p.cliente_id] = (jurosMap[p.cliente_id] || 0) + (Number(p.juros) || 0);
           });
         }
       }
 
-      const clients = (clientes as DbCliente[]).map(c =>
+      // Build full client list (all clients, used for aging)
+      const allClients = (clientes as DbCliente[]).map(c =>
         mapDbClienteToClient(c, flagsMap[c.id] || [], undefined, vitbankMap[c.id] || 0, monetaliMap[c.id] || 0)
       );
+
+      // When month-filtered, restrict KPI/chart clients to those with payments in the month
+      // Override compensacao/juros with payment-derived values for month accuracy
+      const filteredClients = isFiltered
+        ? allClients
+            .filter(c => clientsWithPayments.has(c.id))
+            .map(c => ({
+              ...c,
+              compensacao: compensacaoMap[c.id] || 0,
+              juros: jurosMap[c.id] || 0,
+            }))
+        : allClients.map(c => ({
+            ...c,
+            compensacao: compensacaoMap[c.id] || c.compensacao,
+            juros: jurosMap[c.id] || 0,
+          }));
 
       // Fetch recuperacoes
       const { data: recuperacoes } = await supabase
@@ -102,12 +141,12 @@ export function useDashboard(): UseDashboardReturn {
         .select('*')
         .order('data_recebimento', { ascending: true });
 
-      // Calculate aggregates
-      const totalAtraso = clients.reduce((s, c) => s + c.compensacao, 0);
+      // Calculate aggregates from filtered clients
+      const totalAtraso = filteredClients.reduce((s, c) => s + c.compensacao, 0);
 
-      // Status distribution
+      // Status distribution (from filtered clients)
       const statusCount: Record<string, number> = {};
-      clients.forEach(c => {
+      filteredClients.forEach(c => {
         statusCount[c.situacao] = (statusCount[c.situacao] || 0) + 1;
       });
       const porStatus = Object.entries(statusCount).map(([situacao, value]) => ({
@@ -116,9 +155,9 @@ export function useDashboard(): UseDashboardReturn {
         situacao: situacao as Situacao,
       }));
 
-      // Regional distribution
+      // Regional distribution (from filtered clients)
       const regionalMap: Record<string, number> = {};
-      clients.forEach(c => {
+      filteredClients.forEach(c => {
         const r = c.regional || 'Sem Regional';
         regionalMap[r] = (regionalMap[r] || 0) + c.compensacao;
       });
@@ -126,9 +165,9 @@ export function useDashboard(): UseDashboardReturn {
         .map(([regional, total]) => ({ regional, total }))
         .sort((a, b) => b.total - a.total);
 
-      // Executivo distribution
+      // Executivo distribution (from filtered clients)
       const execMap: Record<string, number> = {};
-      clients.forEach(c => {
+      filteredClients.forEach(c => {
         const e = c.executivo || 'Sem Executivo';
         execMap[e] = (execMap[e] || 0) + c.compensacao;
       });
@@ -137,10 +176,10 @@ export function useDashboard(): UseDashboardReturn {
         .sort((a, b) => b.valor - a.valor)
         .slice(0, 10);
 
-      // Aging
+      // Aging — ALWAYS uses all clients (not filtered by month)
       const aging = AGING_RANGES.map(r => ({
         faixa: r.label,
-        clientes: clients.filter(c =>
+        clientes: allClients.filter(c =>
           c.diasAtraso >= r.min && c.diasAtraso <= r.max
         ).length,
       }));
@@ -156,9 +195,9 @@ export function useDashboard(): UseDashboardReturn {
         .sort((a, b) => a.mes.localeCompare(b.mes));
 
       setData({
-        clients,
+        clients: filteredClients,
         totalAtraso,
-        totalClientes: clients.length,
+        totalClientes: filteredClients.length,
         porStatus,
         porRegional,
         porExecutivo,
@@ -171,7 +210,7 @@ export function useDashboard(): UseDashboardReturn {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [mesReferencia, isFiltered]);
 
   useEffect(() => {
     fetchDashboard();

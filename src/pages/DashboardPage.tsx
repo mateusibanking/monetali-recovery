@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { AlertCircle } from 'lucide-react';
 import { situacaoLabels, formatCurrency, Situacao } from '@/data/mockData';
 import { useDashboard } from '@/hooks/useDashboard';
 import KpiCards from '@/components/KpiCards';
+import MonthSelector from '@/components/MonthSelector';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 
 const COLORS_STATUS: Record<Situacao, string> = {
@@ -15,8 +17,15 @@ const COLORS_STATUS: Record<Situacao, string> = {
 
 const AGING_COLORS = ['#316AB4', '#D4A843', '#ef4444', '#0D2C60'];
 
+/** Return current month as YYYY-MM */
+const getCurrentMonth = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+};
+
 const DashboardPage = () => {
-  const { data: dashboard, loading, error } = useDashboard();
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth);
+  const { data: dashboard, loading, error } = useDashboard(selectedMonth);
 
   if (loading) return <LoadingSkeleton />;
 
@@ -57,16 +66,23 @@ const DashboardPage = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h2 className="text-xl font-bold font-display">Dashboard</h2>
       </div>
+
+      <MonthSelector selected={selectedMonth} onChange={setSelectedMonth} showTodos />
+
       <KpiCards clients={clients} />
+
       {!hasData && (
         <div className="glass-card p-12 flex flex-col items-center justify-center text-center">
           <div className="w-14 h-14 rounded-full bg-muted/50 flex items-center justify-center mb-4">
             <AlertCircle className="h-7 w-7 text-muted-foreground" />
           </div>
-          <h3 className="text-lg font-semibold mb-2">Sem dados</h3>
-          <p className="text-sm text-muted-foreground max-w-md">Importe dados na página de Importação para começar.</p>
+          <h3 className="text-lg font-semibold mb-2">Sem dados para este mês</h3>
+          <p className="text-sm text-muted-foreground max-w-md">
+            Nenhum pagamento encontrado para o período selecionado. Tente outro mês ou selecione "Todos".
+          </p>
         </div>
       )}
+
       {hasData && <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="glass-card p-5" style={{ minHeight: 400 }}>
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4 font-display">Distribuição por Status</h3>
