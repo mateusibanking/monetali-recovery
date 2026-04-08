@@ -1,4 +1,14 @@
-export type Situacao = 'COBRANÇA OK' | 'COBRANÇA EM ANDAMENTO' | 'NÃO PAGO' | 'PARCELADO' | 'DISTRATO';
+export type Situacao =
+  | 'NÃO INICIADO'
+  | 'EM ANDAMENTO'
+  | 'PENDENTE'
+  | 'CONTATADO'
+  | 'EM NEGOCIAÇÃO'
+  | 'ACORDO FECHADO'
+  | 'PAGO'
+  | 'JURÍDICO'
+  | 'PARCELADO'
+  | 'DISTRATO';
 
 export type Flag = 'Prioridade' | 'Juros' | 'Sem Contato' | 'Jurídico' | 'Parcelamento' | 'Promessa de Pgto' | string;
 
@@ -131,19 +141,29 @@ export const formatCurrency = (value: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
 export const situacaoLabels: Record<Situacao, string> = {
-  'COBRANÇA OK': 'Pago',
-  'COBRANÇA EM ANDAMENTO': 'Cobrança em Andamento',
-  'NÃO PAGO': 'Não Pago',
+  'NÃO INICIADO': 'Não Iniciado',
+  'EM ANDAMENTO': 'Em Andamento',
+  'PENDENTE': 'Pendente',
+  'CONTATADO': 'Contatado',
+  'EM NEGOCIAÇÃO': 'Em Negociação',
+  'ACORDO FECHADO': 'Acordo Fechado',
+  'PAGO': 'Pago',
+  'JURÍDICO': 'Jurídico',
   'PARCELADO': 'Parcelado',
   'DISTRATO': 'Distrato',
 };
 
 export const situacaoColors: Record<Situacao, string> = {
-  'COBRANÇA OK': 'status-pago',
-  'COBRANÇA EM ANDAMENTO': 'status-partial',
-  'NÃO PAGO': 'status-overdue',
-  'PARCELADO': 'status-negotiation',
-  'DISTRATO': 'status-legal',
+  'NÃO INICIADO': 'status-nao-iniciado',
+  'EM ANDAMENTO': 'status-em-andamento',
+  'PENDENTE': 'status-pendente',
+  'CONTATADO': 'status-contatado',
+  'EM NEGOCIAÇÃO': 'status-em-negociacao',
+  'ACORDO FECHADO': 'status-acordo-fechado',
+  'PAGO': 'status-pago',
+  'JURÍDICO': 'status-juridico',
+  'PARCELADO': 'status-parcelado',
+  'DISTRATO': 'status-distrato',
 };
 
 export const DEFAULT_FLAGS: Flag[] = ['Prioridade', 'Juros', 'Sem Contato', 'Jurídico', 'Parcelamento', 'Promessa de Pgto'];
@@ -198,7 +218,7 @@ clients.forEach(c => {
       valor: Math.round(baseVal * 100) / 100,
       dataVencimento: d.toISOString().split('T')[0],
       descricao: `Parcela ${i + 1} de ${numPayments}`,
-      status: i === 0 && c.situacao === 'COBRANÇA OK' ? 'Pago' : c.diasAtraso > 30 ? 'Vencido' : 'Pendente',
+      status: i === 0 && c.situacao === 'PAGO' ? 'Pago' : c.diasAtraso > 30 ? 'Vencido' : 'Pendente',
     });
   }
   clientPayments[c.id] = payments;

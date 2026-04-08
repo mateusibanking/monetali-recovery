@@ -25,6 +25,7 @@ export interface DbCliente {
   valor_total_atraso: number;
   qtd_pagamentos_atraso: number;
   dias_atraso_max: number;
+  juros_total: number;
   status: string;
   created_at: string;
   updated_at: string;
@@ -107,20 +108,29 @@ export interface DbPremissa {
 // ---- Status Mapping ----
 
 const dbStatusToSituacao: Record<string, Situacao> = {
-  'pendente': 'NÃO PAGO',
-  'contatado': 'COBRANÇA EM ANDAMENTO',
-  'em_negociacao': 'COBRANÇA EM ANDAMENTO',
-  'acordo_fechado': 'PARCELADO',
-  'pago': 'COBRANÇA OK',
-  'juridico': 'DISTRATO',
+  'nao_iniciado': 'NÃO INICIADO',
+  'em_andamento': 'EM ANDAMENTO',
+  'pendente': 'PENDENTE',
+  'contatado': 'CONTATADO',
+  'em_negociacao': 'EM NEGOCIAÇÃO',
+  'acordo_fechado': 'ACORDO FECHADO',
+  'pago': 'PAGO',
+  'juridico': 'JURÍDICO',
+  'parcelado': 'PARCELADO',
+  'distrato': 'DISTRATO',
 };
 
 const situacaoToDbStatus: Record<Situacao, string> = {
-  'NÃO PAGO': 'pendente',
-  'COBRANÇA EM ANDAMENTO': 'em_negociacao',
-  'COBRANÇA OK': 'pago',
-  'PARCELADO': 'acordo_fechado',
-  'DISTRATO': 'juridico',
+  'NÃO INICIADO': 'nao_iniciado',
+  'EM ANDAMENTO': 'em_andamento',
+  'PENDENTE': 'pendente',
+  'CONTATADO': 'contatado',
+  'EM NEGOCIAÇÃO': 'em_negociacao',
+  'ACORDO FECHADO': 'acordo_fechado',
+  'PAGO': 'pago',
+  'JURÍDICO': 'juridico',
+  'PARCELADO': 'parcelado',
+  'DISTRATO': 'distrato',
 };
 
 const dbPaymentStatusToFrontend: Record<string, PaymentStatus> = {
@@ -153,12 +163,12 @@ export function mapDbClienteToClient(
     regional: row.regional || '',
     executivo: row.executivo_responsavel || '',
     compensacao: Number(row.valor_total_atraso) || 0,
-    juros: 0,  // computed from pagamentos if needed
+    juros: Number(row.juros_total) || 0,
     boletoVitbank,
     pixMonetali,
     diasAtraso: row.dias_atraso_max || 0,
     parcelas: row.qtd_pagamentos_atraso || 0,
-    situacao: dbStatusToSituacao[row.status] || 'NÃO PAGO',
+    situacao: dbStatusToSituacao[row.status] || 'NÃO INICIADO',
     flags,
     mes_referencia: mesReferencia,
   };
@@ -173,7 +183,7 @@ export function mapClientToDbInsert(client: Partial<Client>) {
     valor_total_atraso: client.compensacao || 0,
     qtd_pagamentos_atraso: client.parcelas || 0,
     dias_atraso_max: client.diasAtraso || 0,
-    status: client.situacao ? situacaoToDbStatus[client.situacao] : 'pendente',
+    status: client.situacao ? situacaoToDbStatus[client.situacao] : 'nao_iniciado',
   };
 }
 

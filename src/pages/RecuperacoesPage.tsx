@@ -9,9 +9,14 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 
 
 const STATUS_FILTERS: { value: string; label: string }[] = [
   { value: 'todos', label: 'Todos os Status' },
-  { value: 'COBRANÇA OK', label: 'Pago' },
-  { value: 'COBRANÇA EM ANDAMENTO', label: 'Cobrança em Andamento' },
-  { value: 'NÃO PAGO', label: 'Não Pago' },
+  { value: 'NÃO INICIADO', label: 'Não Iniciado' },
+  { value: 'EM ANDAMENTO', label: 'Em Andamento' },
+  { value: 'PENDENTE', label: 'Pendente' },
+  { value: 'CONTATADO', label: 'Contatado' },
+  { value: 'EM NEGOCIAÇÃO', label: 'Em Negociação' },
+  { value: 'ACORDO FECHADO', label: 'Acordo Fechado' },
+  { value: 'PAGO', label: 'Pago' },
+  { value: 'JURÍDICO', label: 'Jurídico' },
   { value: 'PARCELADO', label: 'Parcelado' },
   { value: 'DISTRATO', label: 'Distrato' },
 ];
@@ -29,9 +34,9 @@ const RecuperacoesPage = () => {
     : clients.filter(c => c.situacao === statusFilter);
 
   const parcelados = filteredByStatus.filter(c => c.situacao === 'PARCELADO');
-  const cobrancaAndamento = filteredByStatus.filter(c => c.situacao === 'COBRANÇA EM ANDAMENTO');
+  const cobrancaAndamento = filteredByStatus.filter(c => c.situacao === 'EM ANDAMENTO');
 
-  const pagos = filteredByStatus.filter(c => c.situacao === 'COBRANÇA OK');
+  const pagos = filteredByStatus.filter(c => c.situacao === 'PAGO');
   const totalPago = pagos.reduce((s, c) => s + c.compensacao, 0);
   const totalRecuperado = cobrancaAndamento.reduce((s, c) => s + c.compensacao, 0);
   const totalParcelamento = parcelados.reduce((s, c) => s + c.compensacao, 0);
@@ -129,7 +134,7 @@ const RecuperacoesPage = () => {
         </div>
       </div>
 
-      {pagos.length > 0 && (statusFilter === 'todos' || statusFilter === 'COBRANÇA OK') && (
+      {pagos.length > 0 && (statusFilter === 'todos' || statusFilter === 'PAGO') && (
         <div>
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 font-display">Pagos ({pagos.length})</h3>
           <div className="grid gap-3">
@@ -154,7 +159,7 @@ const RecuperacoesPage = () => {
         </div>
       )}
 
-      {cobrancaAndamento.length > 0 && (statusFilter === 'todos' || statusFilter === 'COBRANÇA EM ANDAMENTO') && (
+      {cobrancaAndamento.length > 0 && (statusFilter === 'todos' || statusFilter === 'EM ANDAMENTO') && (
         <div>
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 font-display">Cobrança em Andamento ({cobrancaAndamento.length})</h3>
           <div className="grid gap-3">

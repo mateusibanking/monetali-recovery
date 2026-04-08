@@ -159,7 +159,7 @@ const ImportacaoLote = () => {
               case 'executivo': entry.executivo = val; break;
               case 'diasAtraso': entry.diasAtraso = parseInt(val) || 0; break;
               case 'parcelas': entry.parcelas = parseInt(val) || 1; break;
-              case 'situacao': entry.situacao = (val as Client['situacao']) || 'NÃO PAGO'; break;
+              case 'situacao': entry.situacao = (val as Client['situacao']) || 'NÃO INICIADO'; break;
               case 'mes_referencia': entry.mes_referencia = val; break;
             }
           }
@@ -371,9 +371,9 @@ function simulateIAExtraction(files: UploadedFile[]): Promise<{ headers: string[
       // Simulate extraction from PDF/image
       const fakeHeaders = ['Nome', 'CNPJ', 'Valor', 'Dias Atraso', 'Regional', 'Situação'];
       const fakeRows = [
-        ['EMPRESA EXEMPLO LTDA', '12.345.678/0001-99', '45.230,00', '32', 'RJ / SP', 'NÃO PAGO'],
-        ['COMÉRCIO ABC S/A', '98.765.432/0001-11', '18.500,50', '15', 'MG', 'COBRANÇA EM ANDAMENTO'],
-        ['INDÚSTRIA XYZ', '55.123.456/0001-22', '72.100,00', '67', 'RS / SC', 'NÃO PAGO'],
+        ['EMPRESA EXEMPLO LTDA', '12.345.678/0001-99', '45.230,00', '32', 'RJ / SP', 'PENDENTE'],
+        ['COMÉRCIO ABC S/A', '98.765.432/0001-11', '18.500,50', '15', 'MG', 'EM ANDAMENTO'],
+        ['INDÚSTRIA XYZ', '55.123.456/0001-22', '72.100,00', '67', 'RS / SC', 'PENDENTE'],
       ];
       const mapping = autoGuessMapping(fakeHeaders);
       resolve({ headers: fakeHeaders, rows: fakeRows, mapping, warnings: ['Dados extraídos via OCR de ' + files.length + ' arquivo(s) — verifique a precisão'] });
@@ -452,7 +452,7 @@ const ImportacaoIA = () => {
               case 'executivo': entry.executivo = val; break;
               case 'diasAtraso': entry.diasAtraso = parseInt(val) || 0; break;
               case 'parcelas': entry.parcelas = parseInt(val) || 1; break;
-              case 'situacao': entry.situacao = (val as Client['situacao']) || 'NÃO PAGO'; break;
+              case 'situacao': entry.situacao = (val as Client['situacao']) || 'NÃO INICIADO'; break;
               case 'mes_referencia': entry.mes_referencia = val; break;
             }
           }

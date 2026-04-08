@@ -8,11 +8,16 @@ import MonthSelector, { DEFAULT_MONTH } from '@/components/MonthSelector';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 
 const COLORS_STATUS: Record<Situacao, string> = {
-  'COBRANÇA OK': '#22c55e',
-  'COBRANÇA EM ANDAMENTO': '#3b82f6',
-  'NÃO PAGO': '#ef4444',
+  'NÃO INICIADO': '#9ca3af',
+  'EM ANDAMENTO': '#3b82f6',
+  'PENDENTE': '#f59e0b',
+  'CONTATADO': '#06b6d4',
+  'EM NEGOCIAÇÃO': '#6366f1',
+  'ACORDO FECHADO': '#14b8a6',
+  'PAGO': '#22c55e',
+  'JURÍDICO': '#8b5cf6',
   'PARCELADO': '#D4A843',
-  'DISTRATO': '#8b5cf6',
+  'DISTRATO': '#ef4444',
 };
 
 const AGING_COLORS = ['#316AB4', '#D4A843', '#ef4444', '#0D2C60'];

@@ -13,7 +13,7 @@ const KpiCards = ({ clients: clientsProp }: KpiCardsProps) => {
   const totalBoleto = clients.reduce((s, c) => s + c.boletoVitbank, 0);
   const totalPix = clients.reduce((s, c) => s + c.pixMonetali, 0);
   const totalJuros = clients.reduce((s, c) => s + c.juros, 0);
-  const naoPagos = clients.filter(c => c.situacao === 'NÃO PAGO').length;
+  const naoPagos = clients.filter(c => c.situacao === 'PENDENTE' || c.situacao === 'NÃO INICIADO').length;
   const criticalCount = clients.filter(c => c.diasAtraso > 90).length;
   const novosCadastros = clients.length;
 
