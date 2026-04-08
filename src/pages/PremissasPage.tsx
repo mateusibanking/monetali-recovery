@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Settings, Save, Plus, Trash2, FileText, Copy, ChevronDown, ChevronUp, ShieldAlert } from 'lucide-react';
+import { Settings, Save, Plus, Trash2, FileText, Copy, ChevronDown, ChevronUp, ShieldAlert, Calculator, Loader2 } from 'lucide-react';
 import { TEMPLATE_VARIABLES, type EmailTemplate } from '@/data/premissas';
 import { premissas as staticPremissas } from '@/data/premissas';
 import { usePremissas } from '@/hooks/usePremissas';
@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 
 const PremissasPage = () => {
   const canUpdate = usePermission('premissas', 'update');
-  const { data: dbPremissas, loading, error, updatePremissa } = usePremissas();
+  const { data: dbPremissas, loading, error, updatePremissa, recalcularJuros } = usePremissas();
 
   const [form, setForm] = useState({
     taxaJurosDia: 0.033,
@@ -21,6 +21,8 @@ const PremissasPage = () => {
     templates: staticPremissas.templates.map(t => ({ ...t })),
   });
   const [saved, setSaved] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
+  const [showConfirmRecalc, setShowConfirmRecalc] = useState(false);
   const [expandedTemplate, setExpandedTemplate] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'parametros' | 'templates'>('parametros');
 
@@ -68,6 +70,25 @@ const PremissasPage = () => {
       setTimeout(() => setSaved(false), 2000);
     } else {
       toast.error('Erro ao salvar algumas premissas.');
+    }
+  };
+
+  const handleRecalcJuros = async () => {
+    setShowConfirmRecalc(false);
+    setRecalculating(true);
+    try {
+      const result = await recalcularJuros();
+      if (result.pagamentosAtualizados === 0) {
+        toast.info('Nenhum pagamento vencido encontrado para recalcular.');
+      } else {
+        toast.success(
+          `Juros recalculados — ${result.pagamentosAtualizados} pagamento${result.pagamentosAtualizados > 1 ? 's' : ''} atualizado${result.pagamentosAtualizados > 1 ? 's' : ''} (${result.clientesAtualizados} cliente${result.clientesAtualizados > 1 ? 's' : ''})`,
+        );
+      }
+    } catch (err: any) {
+      toast.error(`Erro ao recalcular juros: ${err.message}`);
+    } finally {
+      setRecalculating(false);
     }
   };
 
@@ -125,12 +146,22 @@ const PremissasPage = () => {
           <Settings className="h-5 w-5" /> Premissas
         </h2>
         {canUpdate ? (
-          <button onClick={handleSave}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              saved ? 'bg-[hsl(var(--recovered))] text-white' : 'bg-primary text-primary-foreground hover:bg-primary/90'
-            }`}>
-            <Save className="h-4 w-4" /> {saved ? 'Salvo!' : 'Salvar Premissas'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowConfirmRecalc(true)}
+              disabled={recalculating}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all bg-accent text-accent-foreground hover:bg-accent/90 disabled:opacity-50"
+            >
+              {recalculating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calculator className="h-4 w-4" />}
+              {recalculating ? 'Recalculando…' : 'Recalcular Juros'}
+            </button>
+            <button onClick={handleSave}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                saved ? 'bg-[hsl(var(--recovered))] text-white' : 'bg-primary text-primary-foreground hover:bg-primary/90'
+              }`}>
+              <Save className="h-4 w-4" /> {saved ? 'Salvo!' : 'Salvar Premissas'}
+            </button>
+          </div>
         ) : (
           <span className="flex items-center gap-2 text-xs text-muted-foreground">
             <ShieldAlert className="h-4 w-4" /> Somente leitura
@@ -239,6 +270,38 @@ const PremissasPage = () => {
             </div>
           </div>
         </>
+      )}
+
+      {/* Confirmation Modal for Recalcular Juros */}
+      {showConfirmRecalc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowConfirmRecalc(false)}>
+          <div className="bg-card border border-border rounded-xl shadow-lg p-6 max-w-md mx-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-accent/15 flex items-center justify-center">
+                <Calculator className="h-5 w-5 text-accent" />
+              </div>
+              <h3 className="text-lg font-semibold font-display">Recalcular Juros</h3>
+            </div>
+            <p className="text-sm text-muted-foreground mb-2">
+              Isso vai recalcular os juros de <strong>todos os pagamentos vencidos</strong> com base nas premissas atuais:
+            </p>
+            <ul className="text-sm text-muted-foreground mb-5 space-y-1 ml-4 list-disc">
+              <li>Taxa de juros: <span className="font-mono font-semibold text-foreground">{form.taxaJurosDia}%</span> ao dia</li>
+              <li>Multa por atraso: <span className="font-mono font-semibold text-foreground">{form.multaAtraso}%</span></li>
+            </ul>
+            <p className="text-sm text-muted-foreground mb-5">Continuar?</p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setShowConfirmRecalc(false)}
+                className="px-4 py-2 rounded-lg text-sm font-medium border border-border text-muted-foreground hover:bg-secondary transition-colors">
+                Cancelar
+              </button>
+              <button onClick={handleRecalcJuros}
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-accent text-accent-foreground hover:bg-accent/90 transition-colors">
+                Confirmar Recálculo
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

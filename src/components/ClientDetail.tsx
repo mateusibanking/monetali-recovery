@@ -54,6 +54,39 @@ const ClientDetail = ({ client, onBack }: Props) => {
   const { flagsDisponiveis, addFlag: addFlagDb, removeFlag: removeFlagDb } = useFlags(client.id);
   const { data: dbPremissas } = usePremissas();
 
+  /** Compute juros breakdown for a single payment (real-time from premissas + dates) */
+  const computeJurosBreakdown = (p: Payment) => {
+    const hoje = new Date();
+    const taxa = dbPremissas.taxaJurosDia;
+    const multa = dbPremissas.multaAtraso;
+    let jurosVb = 0, multaVb = 0, diasVb = 0;
+    let jurosMon = 0, multaMon = 0, diasMon = 0;
+
+    const vb = p.vitbank || 0;
+    if (vb > 0 && p.vctoVitbank) {
+      diasVb = Math.max(0, Math.floor((hoje.getTime() - new Date(p.vctoVitbank).getTime()) / 86400000));
+      if (diasVb > 0) {
+        jurosVb = vb * (taxa / 100) * diasVb;
+        multaVb = vb * (multa / 100);
+      }
+    }
+    const mon = p.monetali || 0;
+    if (mon > 0 && p.vctoMonetali) {
+      diasMon = Math.max(0, Math.floor((hoje.getTime() - new Date(p.vctoMonetali).getTime()) / 86400000));
+      if (diasMon > 0) {
+        jurosMon = mon * (taxa / 100) * diasMon;
+        multaMon = mon * (multa / 100);
+      }
+    }
+    return {
+      totalVitbank: Math.round((jurosVb + multaVb) * 100) / 100,
+      totalMonetali: Math.round((jurosMon + multaMon) * 100) / 100,
+      diasVb, diasMon,
+      baseVb: vb, baseMon: mon,
+      total: Math.round((jurosVb + multaVb + jurosMon + multaMon) * 100) / 100,
+    };
+  };
+
   const [form, setForm] = useState({
     compensacao: client.compensacao,
     juros: client.juros,
@@ -68,6 +101,7 @@ const ClientDetail = ({ client, onBack }: Props) => {
   });
   const [saved, setSaved] = useState(false);
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
+  const [expandedJurosId, setExpandedJurosId] = useState<string | null>(null);
   const [newFlagInput, setNewFlagInput] = useState('');
   const [showParcelamento, setShowParcelamento] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
@@ -314,8 +348,35 @@ const ClientDetail = ({ client, onBack }: Props) => {
                       <td className="px-3 py-2.5 font-mono text-muted-foreground text-right hidden lg:table-cell whitespace-nowrap">
                         {fmtDate(p.pgtoMonetali)}
                       </td>
-                      <td className="px-3 py-2.5 font-mono text-right text-negotiation">
-                        {(p.juros || 0) > 0 ? formatCurrency(p.juros!) : <span className="text-muted-foreground">—</span>}
+                      <td className="px-3 py-2.5 font-mono text-right text-negotiation relative">
+                        {(p.juros || 0) > 0 ? (
+                          <button
+                            onClick={() => setExpandedJurosId(expandedJurosId === p.id ? null : p.id)}
+                            className="hover:underline cursor-pointer"
+                            title="Clique para ver o breakdown"
+                          >
+                            {formatCurrency(p.juros!)}
+                          </button>
+                        ) : <span className="text-muted-foreground">—</span>}
+                        {expandedJurosId === p.id && (() => {
+                          const bd = computeJurosBreakdown(p);
+                          return (
+                            <div className="absolute right-0 top-full mt-1 z-30 bg-card border border-border rounded-lg shadow-lg p-3 text-left whitespace-nowrap min-w-[260px]">
+                              <p className="text-[11px] font-semibold text-foreground mb-1.5">Juros calculados: {formatCurrency(bd.total)}</p>
+                              <div className="space-y-1 text-[10px]">
+                                <p className="text-partial">
+                                  VitBank: {formatCurrency(bd.totalVitbank)}
+                                  <span className="text-muted-foreground ml-1">({bd.diasVb}d sobre {formatCurrency(bd.baseVb)})</span>
+                                </p>
+                                <p className="text-recovered">
+                                  Monetali: {formatCurrency(bd.totalMonetali)}
+                                  <span className="text-muted-foreground ml-1">({bd.diasMon}d sobre {formatCurrency(bd.baseMon)})</span>
+                                </p>
+                              </div>
+                              <p className="text-[9px] text-muted-foreground mt-1.5">Taxa: {dbPremissas.taxaJurosDia}%/dia · Multa: {dbPremissas.multaAtraso}%</p>
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="px-3 py-2.5">
                         <button onClick={() => cyclePaymentStatus(p)} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border transition-colors ${style.bg}`}>
