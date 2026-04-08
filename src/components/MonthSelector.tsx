@@ -1,3 +1,5 @@
+import { Calendar } from 'lucide-react';
+
 interface MonthSelectorProps {
   selected: string;
   onChange: (month: string) => void;
@@ -5,46 +7,36 @@ interface MonthSelectorProps {
 }
 
 const MONTHS = [
-  { label: 'Jan', value: '2026-01' },
-  { label: 'Fev', value: '2026-02' },
-  { label: 'Mar', value: '2026-03' },
-  { label: 'Abr', value: '2026-04' },
-  { label: 'Mai', value: '2026-05' },
-  { label: 'Jun', value: '2026-06' },
-  { label: 'Jul', value: '2026-07' },
-  { label: 'Ago', value: '2026-08' },
-  { label: 'Set', value: '2026-09' },
-  { label: 'Out', value: '2026-10' },
-  { label: 'Nov', value: '2026-11' },
-  { label: 'Dez', value: '2026-12' },
+  { label: 'Janeiro 2026', value: '2026-01' },
+  { label: 'Fevereiro 2026', value: '2026-02' },
+  { label: 'Março 2026', value: '2026-03' },
+  { label: 'Abril 2026', value: '2026-04' },
+  { label: 'Maio 2026', value: '2026-05' },
+  { label: 'Junho 2026', value: '2026-06' },
+  { label: 'Julho 2026', value: '2026-07' },
+  { label: 'Agosto 2026', value: '2026-08' },
+  { label: 'Setembro 2026', value: '2026-09' },
+  { label: 'Outubro 2026', value: '2026-10' },
+  { label: 'Novembro 2026', value: '2026-11' },
+  { label: 'Dezembro 2026', value: '2026-12' },
 ];
 
-const chipBase = 'px-4 py-1.5 rounded-full text-sm font-medium transition-colors';
-const chipActive = 'bg-accent text-accent-foreground shadow-sm';
-const chipInactive = 'bg-transparent border border-primary/30 text-primary hover:bg-primary/5 hover:border-primary/50';
+/** Default month for the system: March 2026 (start of operations) */
+export const DEFAULT_MONTH = '2026-03';
 
 const MonthSelector = ({ selected, onChange, showTodos = false }: MonthSelectorProps) => (
-  <div className="flex flex-wrap gap-2">
-    {showTodos && (
-      <button
-        onClick={() => onChange('todos')}
-        className={`${chipBase} ${selected === 'todos' ? chipActive : chipInactive}`}
-      >
-        Todos
-      </button>
-    )}
-    {MONTHS.map(m => {
-      const active = m.value === selected;
-      return (
-        <button
-          key={m.value}
-          onClick={() => onChange(m.value)}
-          className={`${chipBase} ${active ? chipActive : chipInactive}`}
-        >
-          {m.label}
-        </button>
-      );
-    })}
+  <div className="flex items-center gap-2">
+    <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+    <select
+      value={selected}
+      onChange={e => onChange(e.target.value)}
+      className="bg-secondary/50 border border-border/50 rounded-lg text-sm px-3 py-2 text-foreground font-medium focus:outline-none focus:ring-1 focus:ring-primary/50 cursor-pointer min-w-[200px]"
+    >
+      {showTodos && <option value="todos">Todos</option>}
+      {MONTHS.map(m => (
+        <option key={m.value} value={m.value}>{m.label}</option>
+      ))}
+    </select>
   </div>
 );
 

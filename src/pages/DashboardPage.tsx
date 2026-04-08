@@ -4,7 +4,7 @@ import { AlertCircle } from 'lucide-react';
 import { situacaoLabels, formatCurrency, Situacao } from '@/data/mockData';
 import { useDashboard } from '@/hooks/useDashboard';
 import KpiCards from '@/components/KpiCards';
-import MonthSelector from '@/components/MonthSelector';
+import MonthSelector, { DEFAULT_MONTH } from '@/components/MonthSelector';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 
 const COLORS_STATUS: Record<Situacao, string> = {
@@ -17,14 +17,8 @@ const COLORS_STATUS: Record<Situacao, string> = {
 
 const AGING_COLORS = ['#316AB4', '#D4A843', '#ef4444', '#0D2C60'];
 
-/** Return current month as YYYY-MM */
-const getCurrentMonth = () => {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-};
-
 const DashboardPage = () => {
-  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth);
+  const [selectedMonth, setSelectedMonth] = useState(DEFAULT_MONTH);
   const { data: dashboard, loading, error } = useDashboard(selectedMonth);
 
   if (loading) return <LoadingSkeleton />;

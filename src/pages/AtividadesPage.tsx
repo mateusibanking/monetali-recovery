@@ -3,6 +3,7 @@ import { ClipboardList, Plus } from 'lucide-react';
 import { CollectionEvent } from '@/data/mockData';
 import { useClientes } from '@/hooks/useClientes';
 import { useAtividades } from '@/hooks/useAtividades';
+import MonthSelector, { DEFAULT_MONTH } from '@/components/MonthSelector';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 import { toast } from 'sonner';
 
@@ -13,6 +14,7 @@ const activityTypes = [
 ] as const;
 
 const AtividadesPage = () => {
+  const [selectedMonth, setSelectedMonth] = useState(DEFAULT_MONTH);
   const { data: clients, loading: loadingClients } = useClientes();
   const { events: activities, loading: loadingActivities, create: createAtividade } = useAtividades();
 
@@ -50,17 +52,24 @@ const AtividadesPage = () => {
 
   if (loadingClients || loadingActivities) return <LoadingSkeleton />;
 
-  const sorted = [...activities].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  // Filter activities by selected month
+  const filteredActivities = selectedMonth === 'todos'
+    ? activities
+    : activities.filter(a => a.date.startsWith(selectedMonth));
+  const sorted = [...filteredActivities].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   const inputClass = "w-full bg-secondary/50 border border-border/50 rounded-lg text-sm px-3 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50";
   const labelClass = "text-xs font-medium uppercase tracking-wider text-muted-foreground mb-1.5 block";
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
-          <ClipboardList className="h-5 w-5 text-primary" />
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
+            <ClipboardList className="h-5 w-5 text-primary" />
+          </div>
+          <h2 className="text-xl font-bold">Registro de Atividades</h2>
         </div>
-        <h2 className="text-xl font-bold">Registro de Atividades</h2>
+        <MonthSelector selected={selectedMonth} onChange={setSelectedMonth} showTodos />
       </div>
 
       {/* Form */}

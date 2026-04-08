@@ -3,13 +3,8 @@ import { TrendingUp, AlertCircle, CheckCircle2, Clock, AlertTriangle } from 'luc
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { formatCurrency } from '@/data/mockData';
 import { useEvolucao, type DadosMes } from '@/hooks/useEvolucao';
-import MonthSelector from '@/components/MonthSelector';
+import MonthSelector, { DEFAULT_MONTH } from '@/components/MonthSelector';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
-
-const getCurrentMonth = () => {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-};
 
 const tooltipStyle = {
   contentStyle: { background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12, color: '#333' },
@@ -17,7 +12,7 @@ const tooltipStyle = {
 };
 
 const EvolucaoPage = () => {
-  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth);
+  const [selectedMonth, setSelectedMonth] = useState(DEFAULT_MONTH);
   const { data: evolucao, loading, error } = useEvolucao(2026);
 
   // Get data for selected month or all months

@@ -1,11 +1,14 @@
+import { useState } from 'react';
 import { formatCurrency } from '@/data/mockData';
 import { useClientes } from '@/hooks/useClientes';
 import StatusBadge from '@/components/StatusBadge';
+import MonthSelector, { DEFAULT_MONTH } from '@/components/MonthSelector';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 import { CheckCircle, DollarSign, TrendingUp, Percent } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 const RecuperacoesPage = () => {
+  const [selectedMonth, setSelectedMonth] = useState(DEFAULT_MONTH);
   const { data: clients, loading, error } = useClientes();
 
   if (loading) return <LoadingSkeleton />;
@@ -39,7 +42,10 @@ const RecuperacoesPage = () => {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-bold font-display">Recuperações & Parcelamentos</h2>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <h2 className="text-xl font-bold font-display">Recuperações & Parcelamentos</h2>
+        <MonthSelector selected={selectedMonth} onChange={setSelectedMonth} showTodos />
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {stats.map((s) => (
