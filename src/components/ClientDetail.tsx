@@ -8,7 +8,8 @@ import {
   Client, Situacao, Flag, Payment, PaymentStatus, TimelineEvent,
   formatCurrency, situacaoLabels, getFlagColor,
 } from '@/data/mockData';
-import { premissas as staticPremissas, calcularJuros, type EmailTemplate } from '@/data/premissas';
+import { premissas as staticPremissas, type EmailTemplate } from '@/data/premissas';
+import { calcularJurosEMulta } from '@/lib/calculos';
 import { usePagamentos } from '@/hooks/usePagamentos';
 import { useAtividades } from '@/hooks/useAtividades';
 import { useFlags } from '@/hooks/useFlags';
@@ -57,39 +58,47 @@ const ClientDetail = ({ client, onBack }: Props) => {
 
   /** Compute juros breakdown for a single payment (real-time from premissas + dates).
    *  Skips the VitBank or Monetali side if already paid (pgto_vitbank / pgto_monetali set).
+   *  Usa a função centralizada calcularJurosEMulta:
+   *    - multa: fixa (1x), cobrada quando dias > 0
+   *    - juros: por dia (juros simples)
    */
   const computeJurosBreakdown = (p: Payment) => {
-    const hoje = new Date();
     const taxa = dbPremissas.taxaJurosDia;
-    const multa = dbPremissas.multaAtraso;
-    let jurosVb = 0, multaVb = 0, diasVb = 0;
-    let jurosMon = 0, multaMon = 0, diasMon = 0;
+    const multaPct = dbPremissas.multaAtraso;
 
     const vb = p.vitbank || 0;
     const vbPaid = !!p.pgtoVitbank;
-    if (vb > 0 && p.vctoVitbank && !vbPaid) {
-      diasVb = Math.max(0, Math.floor((hoje.getTime() - new Date(p.vctoVitbank).getTime()) / 86400000));
-      if (diasVb > 0) {
-        jurosVb = vb * (taxa / 100) * diasVb;
-        multaVb = vb * (multa / 100);
-      }
-    }
+    const rVb = vb > 0 && p.vctoVitbank && !vbPaid
+      ? calcularJurosEMulta(vb, p.vctoVitbank, taxa, multaPct)
+      : { juros: 0, multa: 0, total: 0, dias: 0 };
+
     const mon = p.monetali || 0;
     const monPaid = !!p.pgtoMonetali;
-    if (mon > 0 && p.vctoMonetali && !monPaid) {
-      diasMon = Math.max(0, Math.floor((hoje.getTime() - new Date(p.vctoMonetali).getTime()) / 86400000));
-      if (diasMon > 0) {
-        jurosMon = mon * (taxa / 100) * diasMon;
-        multaMon = mon * (multa / 100);
-      }
-    }
+    const rMon = mon > 0 && p.vctoMonetali && !monPaid
+      ? calcularJurosEMulta(mon, p.vctoMonetali, taxa, multaPct)
+      : { juros: 0, multa: 0, total: 0, dias: 0 };
+
+    const round2 = (v: number) => Math.round(v * 100) / 100;
+
     return {
-      totalVitbank: Math.round((jurosVb + multaVb) * 100) / 100,
-      totalMonetali: Math.round((jurosMon + multaMon) * 100) / 100,
-      diasVb, diasMon,
-      baseVb: vb, baseMon: mon,
-      vbPaid, monPaid,
-      total: Math.round((jurosVb + multaVb + jurosMon + multaMon) * 100) / 100,
+      // Totais por lado (juros + multa)
+      totalVitbank: rVb.total,
+      totalMonetali: rMon.total,
+      // Breakdown detalhado por lado
+      jurosVb: rVb.juros,
+      multaVb: rVb.multa,
+      jurosMon: rMon.juros,
+      multaMon: rMon.multa,
+      diasVb: rVb.dias,
+      diasMon: rMon.dias,
+      baseVb: vb,
+      baseMon: mon,
+      vbPaid,
+      monPaid,
+      // Totais agregados
+      juros: round2(rVb.juros + rMon.juros),
+      multa: round2(rVb.multa + rMon.multa),
+      total: round2(rVb.total + rMon.total),
     };
   };
 
@@ -122,20 +131,29 @@ const ClientDetail = ({ client, onBack }: Props) => {
   const totalMonetali = payments.reduce((s, p) => s + (p.monetali || 0), 0);
 
   // Computed juros totals (by side), calculated on-the-fly from premissas + vencimentos
+  // Agrega separadamente juros (por dia) e multa (fixa) por lado pra exibição e tooltip.
   const jurosTotals = payments.reduce(
     (acc, p) => {
       const bd = computeJurosBreakdown(p);
       acc.vitbank += bd.totalVitbank;
       acc.monetali += bd.totalMonetali;
+      acc.jurosVb += bd.jurosVb;
+      acc.multaVb += bd.multaVb;
+      acc.jurosMon += bd.jurosMon;
+      acc.multaMon += bd.multaMon;
       return acc;
     },
-    { vitbank: 0, monetali: 0 }
+    { vitbank: 0, monetali: 0, jurosVb: 0, multaVb: 0, jurosMon: 0, multaMon: 0 }
   );
-  const totalJurosVitbank = Math.round(jurosTotals.vitbank * 100) / 100;
-  const totalJurosMonetali = Math.round(jurosTotals.monetali * 100) / 100;
-  const totalJuros = Math.round((totalJurosVitbank + totalJurosMonetali) * 100) / 100;
+  const round2 = (v: number) => Math.round(v * 100) / 100;
+  const totalJurosVitbank = round2(jurosTotals.vitbank);
+  const totalJurosMonetali = round2(jurosTotals.monetali);
+  const totalJuros = round2(totalJurosVitbank + totalJurosMonetali);
+  const totalJurosOnly = round2(jurosTotals.jurosVb + jurosTotals.jurosMon);
+  const totalMultaOnly = round2(jurosTotals.multaVb + jurosTotals.multaMon);
 
-  const { jurosAcumulados, valorAtualizado } = calcularJuros(form.compensacao, form.diasAtraso);
+  // Valor atualizado (compensação + encargos reais calculados por pagamento)
+  const valorAtualizado = round2(form.compensacao + totalJuros);
 
   const handleSave = async () => {
     const ok = await updateCliente(client.id, {
@@ -284,24 +302,37 @@ const ClientDetail = ({ client, onBack }: Props) => {
         </div>
       </div>
 
-      {/* JUROS AUTOMÁTICOS */}
-      {form.diasAtraso > 0 && (
+      {/* JUROS AUTOMÁTICOS — calculado por pagamento (via premissas) */}
+      {totalJuros > 0 && (
         <div className="glass-card p-5 border-l-4 border-l-accent">
           <div className="flex items-center gap-2 mb-3">
             <Calculator className="h-5 w-5 text-accent" />
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Cálculo Automático de Juros</h3>
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              Cálculo Automático de Encargos
+            </h3>
+            <span className="ml-auto text-[10px] text-muted-foreground">
+              Juros {dbPremissas.taxaJurosDia}%/dia · Multa {dbPremissas.multaAtraso}% (fixa)
+            </span>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
             <div>
               <p className="text-xs text-muted-foreground uppercase">Valor Original</p>
               <p className="text-lg font-bold font-mono">{formatCurrency(form.compensacao)}</p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground uppercase">Juros + Multa Acumulados</p>
-              <p className="text-lg font-bold font-mono text-accent">{formatCurrency(jurosAcumulados)}</p>
+              <p className="text-xs text-muted-foreground uppercase">Juros (por dia)</p>
+              <p className="text-lg font-bold font-mono text-negotiation">{formatCurrency(totalJurosOnly)}</p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground uppercase">Valor Total Atualizado</p>
+              <p className="text-xs text-muted-foreground uppercase">Multa (1x)</p>
+              <p className="text-lg font-bold font-mono text-partial">{formatCurrency(totalMultaOnly)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground uppercase">Total Encargos</p>
+              <p className="text-lg font-bold font-mono text-accent">{formatCurrency(totalJuros)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground uppercase">Valor Atualizado</p>
               <p className="text-lg font-bold font-mono text-overdue">{formatCurrency(valorAtualizado)}</p>
             </div>
           </div>
@@ -341,16 +372,25 @@ const ClientDetail = ({ client, onBack }: Props) => {
               <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Total Monetali</p>
               <p className="text-sm font-bold font-mono text-recovered">{formatCurrency(totalMonetali)}</p>
             </div>
-            <div className="bg-secondary/40 rounded-lg p-3 text-center">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Juros VitBank</p>
+            <div
+              className="bg-secondary/40 rounded-lg p-3 text-center"
+              title={`Juros (por dia): ${formatCurrency(round2(jurosTotals.jurosVb))}\nMulta (fixa 1x): ${formatCurrency(round2(jurosTotals.multaVb))}`}
+            >
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Encargos VitBank</p>
               <p className="text-sm font-bold font-mono text-overdue">{formatCurrency(totalJurosVitbank)}</p>
             </div>
-            <div className="bg-secondary/40 rounded-lg p-3 text-center">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Juros Monetali</p>
+            <div
+              className="bg-secondary/40 rounded-lg p-3 text-center"
+              title={`Juros (por dia): ${formatCurrency(round2(jurosTotals.jurosMon))}\nMulta (fixa 1x): ${formatCurrency(round2(jurosTotals.multaMon))}`}
+            >
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Encargos Monetali</p>
               <p className="text-sm font-bold font-mono text-overdue">{formatCurrency(totalJurosMonetali)}</p>
             </div>
-            <div className="bg-secondary/40 rounded-lg p-3 text-center">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Total Juros</p>
+            <div
+              className="bg-secondary/40 rounded-lg p-3 text-center"
+              title={`Juros totais (por dia): ${formatCurrency(totalJurosOnly)}\nMulta total (fixa 1x): ${formatCurrency(totalMultaOnly)}`}
+            >
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Total Encargos</p>
               <p className="text-sm font-bold font-mono text-negotiation">{formatCurrency(totalJuros)}</p>
             </div>
             <div className="bg-secondary/40 rounded-lg p-3 text-center">
@@ -409,7 +449,7 @@ const ClientDetail = ({ client, onBack }: Props) => {
                         }`}
                         title={
                           bd.totalVitbank > 0
-                            ? `${bd.diasVb} dias sobre ${formatCurrency(bd.baseVb)} · Taxa ${dbPremissas.taxaJurosDia}%/dia + multa ${dbPremissas.multaAtraso}%`
+                            ? `Juros: ${formatCurrency(bd.jurosVb)} (${bd.diasVb}d × ${dbPremissas.taxaJurosDia}%/dia)\nMulta: ${formatCurrency(bd.multaVb)} (${dbPremissas.multaAtraso}% — cobrada 1x)\nTotal: ${formatCurrency(bd.totalVitbank)}`
                             : bd.vbPaid
                             ? 'Pago'
                             : 'Sem juros'
@@ -429,7 +469,7 @@ const ClientDetail = ({ client, onBack }: Props) => {
                         }`}
                         title={
                           bd.totalMonetali > 0
-                            ? `${bd.diasMon} dias sobre ${formatCurrency(bd.baseMon)} · Taxa ${dbPremissas.taxaJurosDia}%/dia + multa ${dbPremissas.multaAtraso}%`
+                            ? `Juros: ${formatCurrency(bd.jurosMon)} (${bd.diasMon}d × ${dbPremissas.taxaJurosDia}%/dia)\nMulta: ${formatCurrency(bd.multaMon)} (${dbPremissas.multaAtraso}% — cobrada 1x)\nTotal: ${formatCurrency(bd.totalMonetali)}`
                             : bd.monPaid
                             ? 'Pago'
                             : 'Sem juros'
@@ -448,19 +488,51 @@ const ClientDetail = ({ client, onBack }: Props) => {
                           </button>
                         ) : <span className="text-muted-foreground">—</span>}
                         {expandedJurosId === p.id && (
-                          <div className="absolute right-0 top-full mt-1 z-30 bg-card border border-border rounded-lg shadow-lg p-3 text-left whitespace-nowrap min-w-[260px]">
-                            <p className="text-[11px] font-semibold text-foreground mb-1.5">Juros calculados: {formatCurrency(bd.total)}</p>
-                            <div className="space-y-1 text-[10px]">
-                              <p className="text-partial">
-                                VitBank: {formatCurrency(bd.totalVitbank)}
-                                <span className="text-muted-foreground ml-1">({bd.diasVb}d sobre {formatCurrency(bd.baseVb)})</span>
-                              </p>
-                              <p className="text-recovered">
-                                Monetali: {formatCurrency(bd.totalMonetali)}
-                                <span className="text-muted-foreground ml-1">({bd.diasMon}d sobre {formatCurrency(bd.baseMon)})</span>
-                              </p>
+                          <div className="absolute right-0 top-full mt-1 z-30 bg-card border border-border rounded-lg shadow-lg p-3 text-left whitespace-nowrap min-w-[300px]">
+                            <p className="text-[11px] font-semibold text-foreground mb-2">
+                              Encargos totais: {formatCurrency(bd.total)}
+                            </p>
+                            <div className="space-y-2 text-[10px]">
+                              {bd.baseVb > 0 && !bd.vbPaid && (
+                                <div className="border-l-2 border-partial/40 pl-2">
+                                  <p className="text-partial font-semibold mb-0.5">
+                                    VitBank · {formatCurrency(bd.baseVb)} · {bd.diasVb}d
+                                  </p>
+                                  <p className="text-muted-foreground">
+                                    Juros: <span className="text-foreground font-mono">{formatCurrency(bd.jurosVb)}</span>
+                                    <span className="text-[9px] ml-1">({bd.diasVb}d × {dbPremissas.taxaJurosDia}%/dia)</span>
+                                  </p>
+                                  <p className="text-muted-foreground">
+                                    Multa: <span className="text-foreground font-mono">{formatCurrency(bd.multaVb)}</span>
+                                    <span className="text-[9px] ml-1">({dbPremissas.multaAtraso}% — 1x)</span>
+                                  </p>
+                                  <p className="text-foreground font-semibold">
+                                    Subtotal: {formatCurrency(bd.totalVitbank)}
+                                  </p>
+                                </div>
+                              )}
+                              {bd.baseMon > 0 && !bd.monPaid && (
+                                <div className="border-l-2 border-recovered/40 pl-2">
+                                  <p className="text-recovered font-semibold mb-0.5">
+                                    Monetali · {formatCurrency(bd.baseMon)} · {bd.diasMon}d
+                                  </p>
+                                  <p className="text-muted-foreground">
+                                    Juros: <span className="text-foreground font-mono">{formatCurrency(bd.jurosMon)}</span>
+                                    <span className="text-[9px] ml-1">({bd.diasMon}d × {dbPremissas.taxaJurosDia}%/dia)</span>
+                                  </p>
+                                  <p className="text-muted-foreground">
+                                    Multa: <span className="text-foreground font-mono">{formatCurrency(bd.multaMon)}</span>
+                                    <span className="text-[9px] ml-1">({dbPremissas.multaAtraso}% — 1x)</span>
+                                  </p>
+                                  <p className="text-foreground font-semibold">
+                                    Subtotal: {formatCurrency(bd.totalMonetali)}
+                                  </p>
+                                </div>
+                              )}
                             </div>
-                            <p className="text-[9px] text-muted-foreground mt-1.5">Taxa: {dbPremissas.taxaJurosDia}%/dia · Multa: {dbPremissas.multaAtraso}%</p>
+                            <p className="text-[9px] text-muted-foreground mt-2 pt-1.5 border-t border-border/40">
+                              Multa é cobrada 1x (fixa). Juros crescem por dia.
+                            </p>
                           </div>
                         )}
                       </td>

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { Premissas } from '@/data/premissas';
 import type { DbPremissa } from '@/lib/supabaseMappers';
+import { calcularJurosEMulta } from '@/lib/calculos';
 
 interface RecalcResult {
   pagamentosAtualizados: number;
@@ -134,39 +135,22 @@ export function usePremissas(): UsePremissasReturn {
       const pags = pagamentos as PagRow[];
       if (pags.length === 0) return { pagamentosAtualizados: 0, clientesAtualizados: 0 };
 
-      // 3. Calculate juros for each payment
+      // 3. Calculate juros + multa for each payment using the centralized util.
+      //    Regra: multa é fixa (1x), juros crescem por dia.
       const hojeDate = new Date(hoje);
       const clienteIds = new Set<string>();
       let updatedCount = 0;
 
       for (const p of pags) {
-        let totalJuros = 0;
-
-        // VitBank interest
+        // VitBank side
         const vb = Number(p.vitbank) || 0;
-        if (vb > 0 && p.vcto_vitbank) {
-          const vctoVb = new Date(p.vcto_vitbank);
-          const diasAtrasoVb = Math.max(0, Math.floor((hojeDate.getTime() - vctoVb.getTime()) / 86400000));
-          if (diasAtrasoVb > 0) {
-            const jurosVb = vb * (taxaJurosDia / 100) * diasAtrasoVb;
-            const multaVb = vb * (multaAtraso / 100);
-            totalJuros += jurosVb + multaVb;
-          }
-        }
+        const rVb = calcularJurosEMulta(vb, p.vcto_vitbank, taxaJurosDia, multaAtraso, hojeDate);
 
-        // Monetali interest
+        // Monetali side
         const mon = Number(p.monetali) || 0;
-        if (mon > 0 && p.vcto_monetali) {
-          const vctoMon = new Date(p.vcto_monetali);
-          const diasAtrasoMon = Math.max(0, Math.floor((hojeDate.getTime() - vctoMon.getTime()) / 86400000));
-          if (diasAtrasoMon > 0) {
-            const jurosMon = mon * (taxaJurosDia / 100) * diasAtrasoMon;
-            const multaMon = mon * (multaAtraso / 100);
-            totalJuros += jurosMon + multaMon;
-          }
-        }
+        const rMon = calcularJurosEMulta(mon, p.vcto_monetali, taxaJurosDia, multaAtraso, hojeDate);
 
-        totalJuros = Math.round(totalJuros * 100) / 100;
+        const totalJuros = Math.round((rVb.total + rMon.total) * 100) / 100;
 
         // 4. Update the payment
         const { error: upErr } = await supabase

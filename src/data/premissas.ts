@@ -97,13 +97,27 @@ cobranca@monetali.com.br`,
   ],
 };
 
-export const calcularJuros = (valorOriginal: number, diasAtraso: number): { jurosAcumulados: number; valorAtualizado: number } => {
+/**
+ * @deprecated Use `calcularJurosEMulta` de `@/lib/calculos` com premissas do DB.
+ * Mantido como atalho pra chamadas legadas que só têm valor original e dias de atraso.
+ * Regra: multa é fixa (1x), juros crescem por dia.
+ */
+export const calcularJuros = (
+  valorOriginal: number,
+  diasAtraso: number
+): { jurosAcumulados: number; valorAtualizado: number } => {
   const diasEfetivos = Math.max(0, diasAtraso - premissas.diasCarencia);
-  const jurosAcumulados = valorOriginal * (premissas.taxaJurosDia / 100) * diasEfetivos;
-  const multa = diasEfetivos > 0 ? valorOriginal * (premissas.multaAtraso / 100) : 0;
+  if (diasEfetivos <= 0 || valorOriginal <= 0) {
+    return { jurosAcumulados: 0, valorAtualizado: valorOriginal };
+  }
+  // Juros: por dia (juros simples)
+  const juros = valorOriginal * (premissas.taxaJurosDia / 100) * diasEfetivos;
+  // Multa: fixa (1x), cobrada quando dias > 0
+  const multa = valorOriginal * (premissas.multaAtraso / 100);
+  const round2 = (v: number) => Math.round(v * 100) / 100;
   return {
-    jurosAcumulados: Math.round((jurosAcumulados + multa) * 100) / 100,
-    valorAtualizado: Math.round((valorOriginal + jurosAcumulados + multa) * 100) / 100,
+    jurosAcumulados: round2(juros + multa),
+    valorAtualizado: round2(valorOriginal + juros + multa),
   };
 };
 
