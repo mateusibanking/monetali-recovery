@@ -54,7 +54,9 @@ const ClientDetail = ({ client, onBack }: Props) => {
   const { flagsDisponiveis, addFlag: addFlagDb, removeFlag: removeFlagDb } = useFlags(client.id);
   const { data: dbPremissas } = usePremissas();
 
-  /** Compute juros breakdown for a single payment (real-time from premissas + dates) */
+  /** Compute juros breakdown for a single payment (real-time from premissas + dates).
+   *  Skips the VitBank or Monetali side if already paid (pgto_vitbank / pgto_monetali set).
+   */
   const computeJurosBreakdown = (p: Payment) => {
     const hoje = new Date();
     const taxa = dbPremissas.taxaJurosDia;
@@ -63,7 +65,8 @@ const ClientDetail = ({ client, onBack }: Props) => {
     let jurosMon = 0, multaMon = 0, diasMon = 0;
 
     const vb = p.vitbank || 0;
-    if (vb > 0 && p.vctoVitbank) {
+    const vbPaid = !!p.pgtoVitbank;
+    if (vb > 0 && p.vctoVitbank && !vbPaid) {
       diasVb = Math.max(0, Math.floor((hoje.getTime() - new Date(p.vctoVitbank).getTime()) / 86400000));
       if (diasVb > 0) {
         jurosVb = vb * (taxa / 100) * diasVb;
@@ -71,7 +74,8 @@ const ClientDetail = ({ client, onBack }: Props) => {
       }
     }
     const mon = p.monetali || 0;
-    if (mon > 0 && p.vctoMonetali) {
+    const monPaid = !!p.pgtoMonetali;
+    if (mon > 0 && p.vctoMonetali && !monPaid) {
       diasMon = Math.max(0, Math.floor((hoje.getTime() - new Date(p.vctoMonetali).getTime()) / 86400000));
       if (diasMon > 0) {
         jurosMon = mon * (taxa / 100) * diasMon;
@@ -83,6 +87,7 @@ const ClientDetail = ({ client, onBack }: Props) => {
       totalMonetali: Math.round((jurosMon + multaMon) * 100) / 100,
       diasVb, diasMon,
       baseVb: vb, baseMon: mon,
+      vbPaid, monPaid,
       total: Math.round((jurosVb + multaVb + jurosMon + multaMon) * 100) / 100,
     };
   };
@@ -113,7 +118,20 @@ const ClientDetail = ({ client, onBack }: Props) => {
   // Aggregate totals from payment breakdown
   const totalVitbank = payments.reduce((s, p) => s + (p.vitbank || 0), 0);
   const totalMonetali = payments.reduce((s, p) => s + (p.monetali || 0), 0);
-  const totalJuros = payments.reduce((s, p) => s + (p.juros || 0), 0);
+
+  // Computed juros totals (by side), calculated on-the-fly from premissas + vencimentos
+  const jurosTotals = payments.reduce(
+    (acc, p) => {
+      const bd = computeJurosBreakdown(p);
+      acc.vitbank += bd.totalVitbank;
+      acc.monetali += bd.totalMonetali;
+      return acc;
+    },
+    { vitbank: 0, monetali: 0 }
+  );
+  const totalJurosVitbank = Math.round(jurosTotals.vitbank * 100) / 100;
+  const totalJurosMonetali = Math.round(jurosTotals.monetali * 100) / 100;
+  const totalJuros = Math.round((totalJurosVitbank + totalJurosMonetali) * 100) / 100;
 
   const { jurosAcumulados, valorAtualizado } = calcularJuros(form.compensacao, form.diasAtraso);
 
@@ -149,8 +167,40 @@ const ClientDetail = ({ client, onBack }: Props) => {
     setForm(prev => ({ ...prev, flags: prev.flags.filter(f => f !== flag) }));
   };
 
-  const updatePayment = async (updated: Payment) => {
+  const updatePayment = async (
+    updated: Payment,
+    parcelamento?: { numParcelas: number; valorParcelaVb: number; valorParcelaMon: number }
+  ) => {
     await updatePaymentDb(updated.id, updated);
+
+    if (parcelamento && parcelamento.numParcelas > 0) {
+      for (let i = 0; i < parcelamento.numParcelas; i++) {
+        const d = new Date();
+        d.setMonth(d.getMonth() + i + 1);
+        const iso = d.toISOString().split('T')[0];
+        await createPayment(
+          {
+            valor: parcelamento.valorParcelaVb + parcelamento.valorParcelaMon,
+            dataVencimento: iso,
+            descricao: `Parcelamento ${i + 1}/${parcelamento.numParcelas} (origem: ${updated.descricao || updated.id.slice(0, 8)})`,
+            status: 'Pendente',
+            vitbank: parcelamento.valorParcelaVb,
+            vctoVitbank: iso,
+            monetali: parcelamento.valorParcelaMon,
+            vctoMonetali: iso,
+            mesReferencia: iso.slice(0, 7),
+          },
+          client.id
+        );
+      }
+      await createAtividade({
+        clienteId: client.id,
+        tipo: 'pagamento',
+        descricao: `Parcelamento inline: ${parcelamento.numParcelas}x — VitBank ${formatCurrency(parcelamento.valorParcelaVb)} + Monetali ${formatCurrency(parcelamento.valorParcelaMon)} por parcela`,
+        criadoPor: form.executivo || 'Sistema',
+      });
+    }
+
     setEditingPayment(null);
   };
 
@@ -274,7 +324,7 @@ const ClientDetail = ({ client, onBack }: Props) => {
 
         {/* Summary totals */}
         {payments.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
             <div className="bg-secondary/40 rounded-lg p-3 text-center">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Total VitBank</p>
               <p className="text-sm font-bold font-mono text-partial">{formatCurrency(totalVitbank)}</p>
@@ -282,6 +332,14 @@ const ClientDetail = ({ client, onBack }: Props) => {
             <div className="bg-secondary/40 rounded-lg p-3 text-center">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Total Monetali</p>
               <p className="text-sm font-bold font-mono text-recovered">{formatCurrency(totalMonetali)}</p>
+            </div>
+            <div className="bg-secondary/40 rounded-lg p-3 text-center">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Juros VitBank</p>
+              <p className="text-sm font-bold font-mono text-overdue">{formatCurrency(totalJurosVitbank)}</p>
+            </div>
+            <div className="bg-secondary/40 rounded-lg p-3 text-center">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Juros Monetali</p>
+              <p className="text-sm font-bold font-mono text-overdue">{formatCurrency(totalJurosMonetali)}</p>
             </div>
             <div className="bg-secondary/40 rounded-lg p-3 text-center">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Total Juros</p>
@@ -307,10 +365,10 @@ const ClientDetail = ({ client, onBack }: Props) => {
                   <th className="px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-right">Compensação</th>
                   <th className="px-3 py-2 font-semibold text-partial uppercase tracking-wider text-right">VitBank</th>
                   <th className="px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-right hidden lg:table-cell">Vcto VB</th>
-                  <th className="px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-right hidden lg:table-cell">Pgto VB</th>
+                  <th className="px-3 py-2 font-semibold text-overdue uppercase tracking-wider text-right hidden lg:table-cell">Juros VitBank</th>
                   <th className="px-3 py-2 font-semibold text-recovered uppercase tracking-wider text-right">Monetali</th>
                   <th className="px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-right hidden lg:table-cell">Vcto Mon.</th>
-                  <th className="px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-right hidden lg:table-cell">Pgto Mon.</th>
+                  <th className="px-3 py-2 font-semibold text-overdue uppercase tracking-wider text-right hidden lg:table-cell">Juros Monetali</th>
                   <th className="px-3 py-2 font-semibold text-negotiation uppercase tracking-wider text-right">Juros</th>
                   <th className="px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
                   <th className="px-3 py-2"></th>
@@ -322,6 +380,7 @@ const ClientDetail = ({ client, onBack }: Props) => {
                   const StatusIcon = style.icon;
                   const fmtDate = (d: string | null | undefined) =>
                     d ? new Date(d).toLocaleDateString('pt-BR') : '—';
+                  const bd = computeJurosBreakdown(p);
                   return (
                     <tr key={p.id} className="border-b border-border/30 hover:bg-secondary/30 transition-colors">
                       <td className="px-3 py-2.5 font-mono text-muted-foreground whitespace-nowrap">
@@ -336,8 +395,19 @@ const ClientDetail = ({ client, onBack }: Props) => {
                       <td className="px-3 py-2.5 font-mono text-muted-foreground text-right hidden lg:table-cell whitespace-nowrap">
                         {fmtDate(p.vctoVitbank)}
                       </td>
-                      <td className="px-3 py-2.5 font-mono text-muted-foreground text-right hidden lg:table-cell whitespace-nowrap">
-                        {fmtDate(p.pgtoVitbank)}
+                      <td
+                        className={`px-3 py-2.5 font-mono text-right hidden lg:table-cell whitespace-nowrap ${
+                          bd.vbPaid || bd.totalVitbank === 0 ? 'text-muted-foreground' : 'text-overdue font-semibold'
+                        }`}
+                        title={
+                          bd.totalVitbank > 0
+                            ? `${bd.diasVb} dias sobre ${formatCurrency(bd.baseVb)} · Taxa ${dbPremissas.taxaJurosDia}%/dia + multa ${dbPremissas.multaAtraso}%`
+                            : bd.vbPaid
+                            ? 'Pago'
+                            : 'Sem juros'
+                        }
+                      >
+                        {bd.totalVitbank > 0 ? formatCurrency(bd.totalVitbank) : '—'}
                       </td>
                       <td className="px-3 py-2.5 font-mono font-semibold text-right text-recovered">
                         {(p.monetali || 0) > 0 ? formatCurrency(p.monetali!) : <span className="text-muted-foreground">—</span>}
@@ -345,38 +415,46 @@ const ClientDetail = ({ client, onBack }: Props) => {
                       <td className="px-3 py-2.5 font-mono text-muted-foreground text-right hidden lg:table-cell whitespace-nowrap">
                         {fmtDate(p.vctoMonetali)}
                       </td>
-                      <td className="px-3 py-2.5 font-mono text-muted-foreground text-right hidden lg:table-cell whitespace-nowrap">
-                        {fmtDate(p.pgtoMonetali)}
+                      <td
+                        className={`px-3 py-2.5 font-mono text-right hidden lg:table-cell whitespace-nowrap ${
+                          bd.monPaid || bd.totalMonetali === 0 ? 'text-muted-foreground' : 'text-overdue font-semibold'
+                        }`}
+                        title={
+                          bd.totalMonetali > 0
+                            ? `${bd.diasMon} dias sobre ${formatCurrency(bd.baseMon)} · Taxa ${dbPremissas.taxaJurosDia}%/dia + multa ${dbPremissas.multaAtraso}%`
+                            : bd.monPaid
+                            ? 'Pago'
+                            : 'Sem juros'
+                        }
+                      >
+                        {bd.totalMonetali > 0 ? formatCurrency(bd.totalMonetali) : '—'}
                       </td>
                       <td className="px-3 py-2.5 font-mono text-right text-negotiation relative">
-                        {(p.juros || 0) > 0 ? (
+                        {bd.total > 0 ? (
                           <button
                             onClick={() => setExpandedJurosId(expandedJurosId === p.id ? null : p.id)}
-                            className="hover:underline cursor-pointer"
+                            className="hover:underline cursor-pointer font-semibold"
                             title="Clique para ver o breakdown"
                           >
-                            {formatCurrency(p.juros!)}
+                            {formatCurrency(bd.total)}
                           </button>
                         ) : <span className="text-muted-foreground">—</span>}
-                        {expandedJurosId === p.id && (() => {
-                          const bd = computeJurosBreakdown(p);
-                          return (
-                            <div className="absolute right-0 top-full mt-1 z-30 bg-card border border-border rounded-lg shadow-lg p-3 text-left whitespace-nowrap min-w-[260px]">
-                              <p className="text-[11px] font-semibold text-foreground mb-1.5">Juros calculados: {formatCurrency(bd.total)}</p>
-                              <div className="space-y-1 text-[10px]">
-                                <p className="text-partial">
-                                  VitBank: {formatCurrency(bd.totalVitbank)}
-                                  <span className="text-muted-foreground ml-1">({bd.diasVb}d sobre {formatCurrency(bd.baseVb)})</span>
-                                </p>
-                                <p className="text-recovered">
-                                  Monetali: {formatCurrency(bd.totalMonetali)}
-                                  <span className="text-muted-foreground ml-1">({bd.diasMon}d sobre {formatCurrency(bd.baseMon)})</span>
-                                </p>
-                              </div>
-                              <p className="text-[9px] text-muted-foreground mt-1.5">Taxa: {dbPremissas.taxaJurosDia}%/dia · Multa: {dbPremissas.multaAtraso}%</p>
+                        {expandedJurosId === p.id && (
+                          <div className="absolute right-0 top-full mt-1 z-30 bg-card border border-border rounded-lg shadow-lg p-3 text-left whitespace-nowrap min-w-[260px]">
+                            <p className="text-[11px] font-semibold text-foreground mb-1.5">Juros calculados: {formatCurrency(bd.total)}</p>
+                            <div className="space-y-1 text-[10px]">
+                              <p className="text-partial">
+                                VitBank: {formatCurrency(bd.totalVitbank)}
+                                <span className="text-muted-foreground ml-1">({bd.diasVb}d sobre {formatCurrency(bd.baseVb)})</span>
+                              </p>
+                              <p className="text-recovered">
+                                Monetali: {formatCurrency(bd.totalMonetali)}
+                                <span className="text-muted-foreground ml-1">({bd.diasMon}d sobre {formatCurrency(bd.baseMon)})</span>
+                              </p>
                             </div>
-                          );
-                        })()}
+                            <p className="text-[9px] text-muted-foreground mt-1.5">Taxa: {dbPremissas.taxaJurosDia}%/dia · Multa: {dbPremissas.multaAtraso}%</p>
+                          </div>
+                        )}
                       </td>
                       <td className="px-3 py-2.5">
                         <button onClick={() => cyclePaymentStatus(p)} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border transition-colors ${style.bg}`}>
@@ -392,13 +470,38 @@ const ClientDetail = ({ client, onBack }: Props) => {
                   );
                 })}
               </tbody>
+              <tfoot>
+                <tr className="border-t-2 border-border bg-secondary/40 text-[11px]">
+                  <td className="px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider" colSpan={2}>
+                    Totais
+                  </td>
+                  <td className="px-3 py-2 font-mono font-bold text-right text-partial">
+                    {formatCurrency(totalVitbank)}
+                  </td>
+                  <td className="px-3 py-2 hidden lg:table-cell"></td>
+                  <td className="px-3 py-2 font-mono font-bold text-right text-overdue hidden lg:table-cell">
+                    {totalJurosVitbank > 0 ? formatCurrency(totalJurosVitbank) : '—'}
+                  </td>
+                  <td className="px-3 py-2 font-mono font-bold text-right text-recovered">
+                    {formatCurrency(totalMonetali)}
+                  </td>
+                  <td className="px-3 py-2 hidden lg:table-cell"></td>
+                  <td className="px-3 py-2 font-mono font-bold text-right text-overdue hidden lg:table-cell">
+                    {totalJurosMonetali > 0 ? formatCurrency(totalJurosMonetali) : '—'}
+                  </td>
+                  <td className="px-3 py-2 font-mono font-bold text-right text-negotiation">
+                    {totalJuros > 0 ? formatCurrency(totalJuros) : '—'}
+                  </td>
+                  <td className="px-3 py-2" colSpan={2}></td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         )}
 
         {editingPayment && (
           <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setEditingPayment(null)}>
-            <div className="bg-card rounded-xl border border-border shadow-xl p-6 w-full max-w-md space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="bg-card rounded-xl border border-border shadow-xl p-6 w-full max-w-lg space-y-4" onClick={e => e.stopPropagation()}>
               <div className="flex items-center justify-between">
                 <h4 className="font-semibold text-lg">Editar Pagamento</h4>
                 <button onClick={() => setEditingPayment(null)} className="text-muted-foreground hover:text-foreground"><X className="h-5 w-5" /></button>
@@ -650,36 +753,243 @@ const EmailCobrancaModal = ({
   );
 };
 
-/* Payment edit form */
-const PaymentEditForm = ({ payment, onSave }: { payment: Payment; onSave: (p: Payment) => void }) => {
+/* Payment edit form — split VitBank/Monetali + inline parcelamento */
+const PaymentEditForm = ({
+  payment,
+  onSave,
+}: {
+  payment: Payment;
+  onSave: (
+    p: Payment,
+    parcelamento?: { numParcelas: number; valorParcelaVb: number; valorParcelaMon: number }
+  ) => void;
+}) => {
   const [f, setF] = useState({ ...payment });
-  const statuses: PaymentStatus[] = ['Pendente', 'Pago', 'Parcial', 'Vencido'];
+  const [wantParcelamento, setWantParcelamento] = useState(false);
+  const [numParcelas, setNumParcelas] = useState(3);
+  const statuses: PaymentStatus[] = ['Pendente', 'Parcial', 'Pago', 'Vencido'];
+
+  const vbDevido = f.vitbank || 0;
+  const monDevido = f.monetali || 0;
+  const totalDevido = vbDevido + monDevido;
+  const pagoVb = f.valorPagoVitbank || 0;
+  const pagoMon = f.valorPagoMonetali || 0;
+  const totalPago = Math.round((pagoVb + pagoMon) * 100) / 100;
+  const restante = Math.round((totalDevido - totalPago) * 100) / 100;
+
+  const valorParcelaVb = numParcelas > 0 ? Math.round((vbDevido / numParcelas) * 100) / 100 : 0;
+  const valorParcelaMon = numParcelas > 0 ? Math.round((monDevido / numParcelas) * 100) / 100 : 0;
+
+  const fmtDateBR = (d?: string | null) =>
+    d ? new Date(d).toLocaleDateString('pt-BR') : '—';
+
+  // Auto-derive status from values paid
+  const computeStatus = (): PaymentStatus => {
+    if (totalDevido <= 0) return f.status;
+    if (totalPago <= 0) return 'Pendente';
+    if (totalPago >= totalDevido) return 'Pago';
+    return 'Parcial';
+  };
+
+  // Most recent payment date between the two sides
+  const mostRecentPgto = (): string | null => {
+    const dates = [f.pgtoVitbank, f.pgtoMonetali].filter(Boolean) as string[];
+    if (!dates.length) return null;
+    return dates.sort().reverse()[0];
+  };
+
+  const handleSave = () => {
+    const autoStatus = computeStatus();
+    const dataPgto = mostRecentPgto();
+    const payload: Payment = {
+      ...f,
+      status: autoStatus,
+      dataPagamento: dataPgto,
+    };
+    if (wantParcelamento && numParcelas > 0) {
+      onSave(payload, { numParcelas, valorParcelaVb, valorParcelaMon });
+    } else {
+      onSave(payload);
+    }
+  };
+
+  const inputCls =
+    'w-full mt-1 px-3 py-2 bg-secondary/50 border border-border/50 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary/50';
+  const inputMonoCls = `${inputCls} font-mono`;
+  const readonlyCls =
+    'w-full mt-1 px-3 py-2 bg-muted/40 border border-border/30 rounded-lg text-sm font-mono text-muted-foreground cursor-not-allowed';
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
+      {/* Status selector */}
       <div>
-        <label className="text-xs text-muted-foreground uppercase tracking-wider">Descrição</label>
-        <input value={f.descricao} onChange={e => setF(p => ({ ...p, descricao: e.target.value }))} className="w-full mt-1 px-3 py-2 bg-secondary/50 border border-border/50 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary/50" />
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="text-xs text-muted-foreground uppercase tracking-wider">Valor (R$)</label>
-          <input type="number" step="0.01" value={f.valor} onChange={e => setF(p => ({ ...p, valor: parseFloat(e.target.value) || 0 }))} className="w-full mt-1 px-3 py-2 bg-secondary/50 border border-border/50 rounded-lg text-sm font-mono focus:outline-none focus:ring-1 focus:ring-primary/50" />
-        </div>
-        <div>
-          <label className="text-xs text-muted-foreground uppercase tracking-wider">Vencimento</label>
-          <input type="date" value={f.dataVencimento} onChange={e => setF(p => ({ ...p, dataVencimento: e.target.value }))} className="w-full mt-1 px-3 py-2 bg-secondary/50 border border-border/50 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary/50" />
-        </div>
-      </div>
-      <div>
-        <label className="text-xs text-muted-foreground uppercase tracking-wider">Status</label>
-        <div className="flex gap-2 mt-1">
+        <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Status</label>
+        <div className="flex gap-2 mt-1 flex-wrap">
           {statuses.map(s => (
-            <button key={s} onClick={() => setF(p => ({ ...p, status: s }))}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${f.status === s ? 'bg-primary text-primary-foreground border-primary' : 'bg-secondary/50 border-border/50 text-muted-foreground hover:text-foreground'}`}>{s}</button>
+            <button
+              key={s}
+              type="button"
+              onClick={() => setF(p => ({ ...p, status: s }))}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                f.status === s
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-secondary/50 border-border/50 text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {s}
+            </button>
           ))}
         </div>
+        <p className="text-[10px] text-muted-foreground mt-1">
+          Sugerido automaticamente ao salvar: <strong>{computeStatus()}</strong>
+        </p>
       </div>
-      <button onClick={() => onSave(f)} className="w-full mt-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+
+      {/* VitBank block */}
+      <div className="bg-partial/5 border border-partial/25 rounded-lg p-3 space-y-2">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-semibold uppercase tracking-wider text-partial">VitBank</p>
+          <span className="text-[10px] text-muted-foreground">Vcto: {fmtDateBR(f.vctoVitbank)}</span>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Valor Devido</label>
+            <input type="text" disabled value={formatCurrency(vbDevido)} className={readonlyCls} />
+          </div>
+          <div>
+            <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Data Pgto</label>
+            <input
+              type="date"
+              value={f.pgtoVitbank || ''}
+              onChange={e => setF(p => ({ ...p, pgtoVitbank: e.target.value || null }))}
+              className={inputCls}
+            />
+          </div>
+        </div>
+        <div>
+          <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Valor Pago (R$)</label>
+          <input
+            type="number"
+            step="0.01"
+            value={pagoVb}
+            onChange={e => setF(p => ({ ...p, valorPagoVitbank: parseFloat(e.target.value) || 0 }))}
+            className={inputMonoCls}
+            placeholder="0,00"
+          />
+        </div>
+      </div>
+
+      {/* Monetali block */}
+      <div className="bg-recovered/5 border border-recovered/25 rounded-lg p-3 space-y-2">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-semibold uppercase tracking-wider text-recovered">Monetali</p>
+          <span className="text-[10px] text-muted-foreground">Vcto: {fmtDateBR(f.vctoMonetali)}</span>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Valor Devido</label>
+            <input type="text" disabled value={formatCurrency(monDevido)} className={readonlyCls} />
+          </div>
+          <div>
+            <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Data Pgto</label>
+            <input
+              type="date"
+              value={f.pgtoMonetali || ''}
+              onChange={e => setF(p => ({ ...p, pgtoMonetali: e.target.value || null }))}
+              className={inputCls}
+            />
+          </div>
+        </div>
+        <div>
+          <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Valor Pago (R$)</label>
+          <input
+            type="number"
+            step="0.01"
+            value={pagoMon}
+            onChange={e => setF(p => ({ ...p, valorPagoMonetali: parseFloat(e.target.value) || 0 }))}
+            className={inputMonoCls}
+            placeholder="0,00"
+          />
+        </div>
+      </div>
+
+      {/* Totals summary */}
+      <div className="bg-secondary/40 rounded-lg p-3 space-y-1 text-sm">
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">Total Devido</span>
+          <span className="font-mono font-semibold">{formatCurrency(totalDevido)}</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">Total Pago</span>
+          <span className="font-mono font-bold text-recovered">{formatCurrency(totalPago)}</span>
+        </div>
+        <div className="flex items-center justify-between border-t border-border/50 pt-1">
+          <span className="text-muted-foreground">Restante</span>
+          <span className={`font-mono font-bold ${restante > 0 ? 'text-overdue' : 'text-recovered'}`}>
+            {formatCurrency(restante)}
+          </span>
+        </div>
+      </div>
+
+      {/* Parcelamento inline */}
+      <div className="border border-border/60 rounded-lg p-3 space-y-2">
+        <label className="flex items-center gap-2 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={wantParcelamento}
+            onChange={e => setWantParcelamento(e.target.checked)}
+            className="h-4 w-4 accent-primary"
+          />
+          <span className="text-sm font-medium">Registrar parcelamento</span>
+        </label>
+        {wantParcelamento && (
+          <div className="space-y-2 pl-6">
+            <div>
+              <label className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                Quantidade de parcelas
+              </label>
+              <input
+                type="number"
+                min={1}
+                value={numParcelas}
+                onChange={e => setNumParcelas(Math.max(1, parseInt(e.target.value) || 1))}
+                className={inputMonoCls}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="bg-partial/10 border border-partial/20 rounded p-2">
+                <p className="text-[10px] text-muted-foreground uppercase">VitBank / parcela</p>
+                <p className="font-mono font-bold text-partial text-sm">{formatCurrency(valorParcelaVb)}</p>
+              </div>
+              <div className="bg-recovered/10 border border-recovered/20 rounded p-2">
+                <p className="text-[10px] text-muted-foreground uppercase">Monetali / parcela</p>
+                <p className="font-mono font-bold text-recovered text-sm">{formatCurrency(valorParcelaMon)}</p>
+              </div>
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              Serão criadas {numParcelas} novas parcelas mensais a partir do próximo mês, com os valores VitBank + Monetali acima.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Observação (usa campo descricao) */}
+      <div>
+        <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Observação</label>
+        <textarea
+          value={f.descricao || ''}
+          onChange={e => setF(p => ({ ...p, descricao: e.target.value }))}
+          rows={2}
+          className={`${inputCls} resize-y`}
+          placeholder="Detalhes ou anotações sobre este pagamento..."
+        />
+      </div>
+
+      <button
+        type="button"
+        onClick={handleSave}
+        className="w-full mt-1 px-4 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors"
+      >
         Salvar Pagamento
       </button>
     </div>

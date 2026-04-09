@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { Payment } from '@/data/mockData';
-import { mapDbPagamentoToPayment, mapPaymentToDbInsert, frontendPaymentStatusToDb } from '@/lib/supabaseMappers';
+import { mapDbPagamentoToPayment, mapPaymentToDbInsert, mapPaymentToDbUpdate } from '@/lib/supabaseMappers';
 import type { DbPagamento } from '@/lib/supabaseMappers';
 
 interface UsePagamentosReturn {
@@ -73,13 +73,10 @@ export function usePagamentos(clienteId?: string): UsePagamentosReturn {
 
   const update = async (id: string, fields: Partial<Payment>): Promise<boolean> => {
     try {
-      const dbUpdate: Record<string, any> = {};
-      if (fields.valor !== undefined) dbUpdate.valor = fields.valor;
-      if (fields.dataVencimento !== undefined) dbUpdate.data_vencimento = fields.dataVencimento;
-      if (fields.descricao !== undefined) dbUpdate.descricao = fields.descricao;
-      if (fields.status !== undefined) dbUpdate.status = frontendPaymentStatusToDb[fields.status];
+      const dbUpdate = mapPaymentToDbUpdate(fields);
 
-      if (fields.status === 'Pago') {
+      // Auto-set data_pagamento to now if status is Pago and caller didn't set one
+      if (fields.status === 'Pago' && fields.dataPagamento === undefined) {
         dbUpdate.data_pagamento = new Date().toISOString();
       }
 

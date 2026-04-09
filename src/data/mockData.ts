@@ -24,14 +24,17 @@ export interface Payment {
   vitbank?: number;
   vctoVitbank?: string | null;
   pgtoVitbank?: string | null;
+  valorPagoVitbank?: number;
   monetali?: number;
   vctoMonetali?: string | null;
   pgtoMonetali?: string | null;
+  valorPagoMonetali?: number;
   imposto?: number;
   valorCompensacao?: number;
   juros?: number;
   mesReferencia?: string | null;
   dataCobranca?: string | null;
+  dataPagamento?: string | null;
 }
 
 export interface TimelineEvent {

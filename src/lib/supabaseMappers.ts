@@ -50,9 +50,11 @@ export interface DbPagamento {
   vitbank: number | null;
   vcto_vitbank: string | null;
   pgto_vitbank: string | null;
+  valor_pago_vitbank: number | null;
   monetali: number | null;
   vcto_monetali: string | null;
   pgto_monetali: string | null;
+  valor_pago_monetali: number | null;
   data_cobranca: string | null;
   motivo: string | null;
   created_at: string;
@@ -210,25 +212,62 @@ export function mapDbPagamentoToPayment(row: DbPagamento): Payment {
     vitbank: Number(row.vitbank) || 0,
     vctoVitbank: row.vcto_vitbank || null,
     pgtoVitbank: row.pgto_vitbank || null,
+    valorPagoVitbank: Number(row.valor_pago_vitbank) || 0,
     monetali: Number(row.monetali) || 0,
     vctoMonetali: row.vcto_monetali || null,
     pgtoMonetali: row.pgto_monetali || null,
+    valorPagoMonetali: Number(row.valor_pago_monetali) || 0,
     imposto: Number(row.imposto) || 0,
     valorCompensacao: Number(row.valor_compensacao) || 0,
     juros: Number(row.juros) || 0,
     mesReferencia: row.mes_referencia || null,
     dataCobranca: row.data_cobranca || null,
+    dataPagamento: row.data_pagamento || null,
   };
 }
 
 export function mapPaymentToDbInsert(p: Partial<Payment>, clienteId: string) {
-  return {
+  const row: Record<string, any> = {
     cliente_id: clienteId,
     valor: p.valor || 0,
     data_vencimento: p.dataVencimento,
     descricao: p.descricao || null,
     status: p.status ? frontendPaymentStatusToDb[p.status] : 'em_aberto',
   };
+  if (p.vitbank !== undefined) row.vitbank = p.vitbank;
+  if (p.vctoVitbank !== undefined) row.vcto_vitbank = p.vctoVitbank || null;
+  if (p.monetali !== undefined) row.monetali = p.monetali;
+  if (p.vctoMonetali !== undefined) row.vcto_monetali = p.vctoMonetali || null;
+  if (p.mesReferencia !== undefined) row.mes_referencia = p.mesReferencia || null;
+  if (p.valorCompensacao !== undefined) row.valor_compensacao = p.valorCompensacao;
+  return row;
+}
+
+/**
+ * Maps a Payment (frontend) to DB UPDATE fields for pagamentos_atraso.
+ * Used by PaymentEditForm to persist VitBank/Monetali breakdown on save.
+ */
+export function mapPaymentToDbUpdate(p: Partial<Payment>) {
+  const update: Record<string, any> = {};
+  if (p.valor !== undefined) update.valor = p.valor;
+  if (p.dataVencimento !== undefined) update.data_vencimento = p.dataVencimento;
+  if (p.descricao !== undefined) update.descricao = p.descricao || null;
+  if (p.status !== undefined) update.status = frontendPaymentStatusToDb[p.status];
+  if (p.vitbank !== undefined) update.vitbank = p.vitbank;
+  if (p.vctoVitbank !== undefined) update.vcto_vitbank = p.vctoVitbank || null;
+  if (p.pgtoVitbank !== undefined) update.pgto_vitbank = p.pgtoVitbank || null;
+  if (p.valorPagoVitbank !== undefined) update.valor_pago_vitbank = p.valorPagoVitbank;
+  if (p.monetali !== undefined) update.monetali = p.monetali;
+  if (p.vctoMonetali !== undefined) update.vcto_monetali = p.vctoMonetali || null;
+  if (p.pgtoMonetali !== undefined) update.pgto_monetali = p.pgtoMonetali || null;
+  if (p.valorPagoMonetali !== undefined) update.valor_pago_monetali = p.valorPagoMonetali;
+  if (p.imposto !== undefined) update.imposto = p.imposto;
+  if (p.valorCompensacao !== undefined) update.valor_compensacao = p.valorCompensacao;
+  if (p.juros !== undefined) update.juros = p.juros;
+  if (p.mesReferencia !== undefined) update.mes_referencia = p.mesReferencia || null;
+  if (p.dataCobranca !== undefined) update.data_cobranca = p.dataCobranca || null;
+  if (p.dataPagamento !== undefined) update.data_pagamento = p.dataPagamento || null;
+  return update;
 }
 
 export function mapDbAtividadeToTimeline(row: DbAtividade): TimelineEvent {
