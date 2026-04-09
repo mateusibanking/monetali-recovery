@@ -16,6 +16,7 @@ import { usePremissas } from '@/hooks/usePremissas';
 import { useClientes } from '@/hooks/useClientes';
 import StatusBadge from './StatusBadge';
 import LoadingSkeleton from './LoadingSkeleton';
+import PaymentForm from './PaymentForm';
 
 interface Props {
   client: Client;
@@ -49,7 +50,7 @@ const substituirVariaveis = (texto: string, client: Client, openPaymentsCount: n
 const ClientDetail = ({ client, onBack }: Props) => {
   // --- Supabase hooks ---
   const { update: updateCliente } = useClientes();
-  const { data: payments, loading: loadingPay, create: createPayment, update: updatePaymentDb } = usePagamentos(client.id);
+  const { data: payments, loading: loadingPay, create: createPayment, update: updatePaymentDb, refetch: refetchPayments } = usePagamentos(client.id);
   const { timeline, loading: loadingTimeline, create: createAtividade } = useAtividades(client.id);
   const { flagsDisponiveis, addFlag: addFlagDb, removeFlag: removeFlagDb } = useFlags(client.id);
   const { data: dbPremissas } = usePremissas();
@@ -110,6 +111,7 @@ const ClientDetail = ({ client, onBack }: Props) => {
   const [newFlagInput, setNewFlagInput] = useState('');
   const [showParcelamento, setShowParcelamento] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
+  const [showNovoPagamento, setShowNovoPagamento] = useState(false);
 
   const allAvailableFlags = [...new Set([...DEFAULT_FLAGS, ...flagsDisponiveis, ...form.flags])];
   const openPayments = payments.filter(p => p.status !== 'Pago');
@@ -312,7 +314,13 @@ const ClientDetail = ({ client, onBack }: Props) => {
           <h3 className="text-lg font-semibold flex items-center gap-2">
             <CreditCard className="h-5 w-5 text-accent" /> Pagamentos
           </h3>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => setShowNovoPagamento(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-semibold hover:bg-primary/90 transition-colors shadow-sm"
+            >
+              <Plus className="h-3.5 w-3.5" /> Novo Pagamento
+            </button>
             <button onClick={() => setShowParcelamento(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-accent/15 text-accent rounded-lg text-xs font-medium border border-accent/25 hover:bg-accent/25 transition-colors">
               <Plus className="h-3.5 w-3.5" /> Registrar Parcelamento
             </button>
@@ -519,6 +527,34 @@ const ClientDetail = ({ client, onBack }: Props) => {
                 <button onClick={() => setShowParcelamento(false)} className="text-muted-foreground hover:text-foreground"><X className="h-5 w-5" /></button>
               </div>
               <ParcelamentoForm valorTotal={valorAtualizado} onSave={registerParcelamento} />
+            </div>
+          </div>
+        )}
+
+        {showNovoPagamento && (
+          <div
+            className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+            onClick={() => setShowNovoPagamento(false)}
+          >
+            <div
+              className="bg-card rounded-xl border border-border shadow-xl p-6 w-full max-w-xl max-h-[90vh] overflow-y-auto"
+              onClick={e => e.stopPropagation()}
+            >
+              <PaymentForm
+                clienteId={client.id}
+                clienteNome={client.nome}
+                onSave={async () => {
+                  await refetchPayments();
+                  await createAtividade({
+                    clienteId: client.id,
+                    tipo: 'pagamento',
+                    descricao: 'Novo pagamento cadastrado via modal "Novo Pagamento"',
+                    criadoPor: form.executivo || 'Sistema',
+                  });
+                  setShowNovoPagamento(false);
+                }}
+                onCancel={() => setShowNovoPagamento(false)}
+              />
             </div>
           </div>
         )}
