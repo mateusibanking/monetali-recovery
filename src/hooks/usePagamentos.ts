@@ -11,6 +11,7 @@ interface UsePagamentosReturn {
   refetch: () => Promise<void>;
   create: (payment: Partial<Payment>, clienteId: string) => Promise<Payment | null>;
   update: (id: string, fields: Partial<Payment>) => Promise<boolean>;
+  softDelete: (id: string) => Promise<boolean>;
   getTotalByCliente: () => number;
 }
 
@@ -94,9 +95,24 @@ export function usePagamentos(clienteId?: string): UsePagamentosReturn {
     }
   };
 
+  const softDelete = async (id: string): Promise<boolean> => {
+    try {
+      const { error: err } = await supabase
+        .from('pagamentos_atraso')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', id);
+      if (err) throw err;
+      await fetchPagamentos();
+      return true;
+    } catch (err: any) {
+      console.error('usePagamentos softDelete error:', err);
+      return false;
+    }
+  };
+
   const getTotalByCliente = () => {
     return data.reduce((sum, p) => sum + p.valor, 0);
   };
 
-  return { data, loading, error, refetch: fetchPagamentos, create, update, getTotalByCliente };
+  return { data, loading, error, refetch: fetchPagamentos, create, update, softDelete, getTotalByCliente };
 }
