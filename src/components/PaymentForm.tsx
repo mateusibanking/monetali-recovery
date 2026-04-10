@@ -24,6 +24,18 @@ export const IMPOSTOS_PADRAO = [
 ] as const;
 
 export const MONTH_OPTIONS = [
+  { label: 'Janeiro 2025', value: '2025-01' },
+  { label: 'Fevereiro 2025', value: '2025-02' },
+  { label: 'Março 2025', value: '2025-03' },
+  { label: 'Abril 2025', value: '2025-04' },
+  { label: 'Maio 2025', value: '2025-05' },
+  { label: 'Junho 2025', value: '2025-06' },
+  { label: 'Julho 2025', value: '2025-07' },
+  { label: 'Agosto 2025', value: '2025-08' },
+  { label: 'Setembro 2025', value: '2025-09' },
+  { label: 'Outubro 2025', value: '2025-10' },
+  { label: 'Novembro 2025', value: '2025-11' },
+  { label: 'Dezembro 2025', value: '2025-12' },
   { label: 'Janeiro 2026', value: '2026-01' },
   { label: 'Fevereiro 2026', value: '2026-02' },
   { label: 'Março 2026', value: '2026-03' },
