@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Loader2, Plus, Check, Calculator, AlertTriangle, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -42,6 +42,7 @@ export interface PaymentFormValue {
   impostos: string[];
   impostoOutro: string;
   valorCompensacao: number;
+  /** @deprecated kept for backwards compat — always true now (bidirectional calc) */
   modoAutomatico: boolean;
   percentVitbank: number;
   percentMonetali: number;
@@ -121,45 +122,58 @@ const PaymentForm = ({
     }));
   };
 
-  // ─── Cálculo automático VitBank/Monetali ──────────────────────
-  const computed = useMemo(() => {
-    const comp = v.valorCompensacao || 0;
-    const pctVb = Math.max(0, Math.min(100, v.percentVitbank || 0));
-    const pctMon = Math.max(0, Math.min(100, v.percentMonetali || 0));
-
-    if (v.modoAutomatico) {
-      const vb = Math.round(comp * (pctVb / 100) * 100) / 100;
-      const mn = Math.round(comp * (pctMon / 100) * 100) / 100;
-      return {
-        pctVb,
-        pctMon,
-        vitbank: vb,
-        monetali: mn,
-        soma: Math.round((vb + mn) * 100) / 100,
-      };
-    }
-    return {
-      pctVb,
-      pctMon,
-      vitbank: v.vitbank || 0,
-      monetali: v.monetali || 0,
-      soma: Math.round(((v.vitbank || 0) + (v.monetali || 0)) * 100) / 100,
-    };
-  }, [v.valorCompensacao, v.percentVitbank, v.modoAutomatico, v.vitbank, v.monetali]);
-
-  // Keep the canonical vitbank/monetali in the value object up to date when auto
+  // ─── Cálculo bidirecional VitBank/Monetali ─────────────────────
+  // When valorCompensacao changes, recalculate values keeping percentages
+  const prevCompRef = useRef(v.valorCompensacao);
   useEffect(() => {
-    if (v.modoAutomatico) {
-      if (v.vitbank !== computed.vitbank || v.monetali !== computed.monetali) {
-        setV(prev => ({ ...prev, vitbank: computed.vitbank, monetali: computed.monetali }));
-      }
-    }
-  }, [v.modoAutomatico, computed.vitbank, computed.monetali]); // eslint-disable-line react-hooks/exhaustive-deps
+    const prevComp = prevCompRef.current;
+    const newComp = v.valorCompensacao || 0;
+    prevCompRef.current = newComp;
 
+    // Only recalculate if comp actually changed (not on mount or other state changes)
+    if (prevComp !== newComp && newComp > 0) {
+      const pctVb = v.percentVitbank || 0;
+      const pctMon = v.percentMonetali || 0;
+      const newVb = Math.round(newComp * (pctVb / 100) * 100) / 100;
+      const newMon = Math.round(newComp * (pctMon / 100) * 100) / 100;
+      setV(prev => ({ ...prev, vitbank: newVb, monetali: newMon }));
+    }
+  }, [v.valorCompensacao]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Patch % VitBank → recalculate valor VitBank */
+  const handlePercentVitbankChange = (pct: number) => {
+    const clamped = Math.max(0, Math.min(100, pct));
+    const comp = v.valorCompensacao || 0;
+    const newVal = Math.round(comp * (clamped / 100) * 100) / 100;
+    patch({ percentVitbank: clamped, vitbank: newVal });
+  };
+
+  /** Patch % Monetali → recalculate valor Monetali */
+  const handlePercentMonetaliChange = (pct: number) => {
+    const clamped = Math.max(0, Math.min(100, pct));
+    const comp = v.valorCompensacao || 0;
+    const newVal = Math.round(comp * (clamped / 100) * 100) / 100;
+    patch({ percentMonetali: clamped, monetali: newVal });
+  };
+
+  /** Patch valor VitBank → recalculate % VitBank */
+  const handleValorVitbankChange = (novoValor: number) => {
+    const comp = v.valorCompensacao || 0;
+    const newPct = comp > 0 ? Math.round((novoValor / comp) * 10000) / 100 : 0;
+    patch({ vitbank: novoValor, percentVitbank: newPct });
+  };
+
+  /** Patch valor Monetali → recalculate % Monetali */
+  const handleValorMonetaliChange = (novoValor: number) => {
+    const comp = v.valorCompensacao || 0;
+    const newPct = comp > 0 ? Math.round((novoValor / comp) * 10000) / 100 : 0;
+    patch({ monetali: novoValor, percentMonetali: newPct });
+  };
+
+  const soma = Math.round(((v.vitbank || 0) + (v.monetali || 0)) * 100) / 100;
   const somaDiferenteDaCompensacao =
-    !v.modoAutomatico &&
     v.valorCompensacao > 0 &&
-    Math.abs(computed.soma - v.valorCompensacao) > 0.01;
+    Math.abs(soma - v.valorCompensacao) > 0.01;
 
   // ─── Validation ───────────────────────────────────────────────
   const validate = (): string | null => {
@@ -169,8 +183,8 @@ const PaymentForm = ({
       return 'Valor Compensação é obrigatório e deve ser maior que zero.';
     if (!v.vctoVitbank && !v.vctoMonetali)
       return 'Informe ao menos uma data de vencimento (VitBank ou Monetali).';
-    if (!v.modoAutomatico && somaDiferenteDaCompensacao)
-      return `Soma VitBank + Monetali (${formatCurrency(computed.soma)}) deve bater com o valor de compensação (${formatCurrency(v.valorCompensacao)}).`;
+    if (somaDiferenteDaCompensacao)
+      return `Soma VitBank + Monetali (${formatCurrency(soma)}) deve bater com o valor de compensação (${formatCurrency(v.valorCompensacao)}).`;
     if (!v.mesReferencia) return 'Mês de referência é obrigatório.';
     return null;
   };
@@ -191,8 +205,8 @@ const PaymentForm = ({
     try {
       const impostoLabel = buildImpostoLabel(v);
       const comp = v.valorCompensacao;
-      const vb = computed.vitbank;
-      const mn = computed.monetali;
+      const vb = v.vitbank || 0;
+      const mn = v.monetali || 0;
       const vctos = [v.vctoVitbank, v.vctoMonetali].filter(Boolean).sort();
       const dataVencimento = vctos[0] || new Date().toISOString().split('T')[0];
 
@@ -320,168 +334,110 @@ const PaymentForm = ({
         />
       </div>
 
-      {/* ═══ Cálculo automático ═══ */}
+      {/* ═══ Cálculo bidirecional VitBank / Monetali ═══ */}
       <div className="bg-accent/5 border border-accent/20 rounded-lg p-3 space-y-3">
         <div className="flex items-center gap-2">
           <Calculator className="h-4 w-4 text-accent" />
           <p className="text-xs font-semibold uppercase tracking-wider text-accent">
             Cálculo VitBank / Monetali
           </p>
+          <span className="text-[10px] text-muted-foreground ml-auto">
+            Altere % ou valor — o outro atualiza automaticamente
+          </span>
         </div>
 
-        {/* Toggle automático/manual */}
-        <div className="flex items-center gap-2 text-xs">
-          <button
-            type="button"
-            onClick={() => patch({ modoAutomatico: true })}
-            className={`px-3 py-1.5 rounded-lg border font-medium transition-colors ${
-              v.modoAutomatico
-                ? 'bg-primary text-primary-foreground border-primary'
-                : 'bg-secondary/50 border-border/50 text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            Usar cálculo automático
-          </button>
-          <button
-            type="button"
-            onClick={() => patch({ modoAutomatico: false })}
-            className={`px-3 py-1.5 rounded-lg border font-medium transition-colors ${
-              !v.modoAutomatico
-                ? 'bg-primary text-primary-foreground border-primary'
-                : 'bg-secondary/50 border-border/50 text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            Digitar manualmente
-          </button>
-        </div>
-
-        {v.modoAutomatico ? (
-          <>
-            {/* Percentages */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                  % VitBank
-                </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    step="1"
-                    min="0"
-                    max="100"
-                    value={v.percentVitbank}
-                    onChange={e =>
-                      patch({
-                        percentVitbank: Math.max(
-                          0,
-                          Math.min(100, parseFloat(e.target.value) || 0)
-                        ),
-                      })
-                    }
-                    className={`${inputMonoCls} pr-7`}
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-muted-foreground">
-                    %
-                  </span>
-                </div>
-              </div>
-              <div>
-                <label className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                  % Monetali
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-              type="number"
-              step="1"
-              min="0"
-              max="100"
-              value={v.percentMonetali}
-              onChange={e =>
-                patch({
-                  percentMonetali: Math.max(
-                    0,
-                    Math.min(100, parseFloat(e.target.value) || 0)
-                  ),
-                })
-              }
-              className={`${inputMonoCls} pr-7`}
-            />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-muted-foreground">
-                    %
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Calculated values */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-partial/10 border border-partial/25 rounded-lg p-2.5">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">VitBank</p>
-                <p className="text-sm font-mono font-bold text-partial">
-                  {formatCurrency(computed.vitbank)}
-                </p>
-              </div>
-              <div className="bg-recovered/10 border border-recovered/25 rounded-lg p-2.5">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Monetali</p>
-                <p className="text-sm font-mono font-bold text-recovered">
-                  {formatCurrency(computed.monetali)}
-                </p>
-              </div>
-            </div>
-          </>
-        ) : (
-          <>
-            {/* Manual inputs */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                  VitBank (R$)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={v.vitbank || ''}
-                  onChange={e => patch({ vitbank: parseFloat(e.target.value) || 0 })}
-                  placeholder="0,00"
-                  className={inputMonoCls}
-                />
-              </div>
-              <div>
-                <label className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                  Monetali (R$)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={v.monetali || ''}
-                  onChange={e => patch({ monetali: parseFloat(e.target.value) || 0 })}
-                  placeholder="0,00"
-                  className={inputMonoCls}
-                />
-              </div>
-            </div>
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Soma VitBank + Monetali</span>
-              <span
-                className={`font-mono font-bold ${
-                  somaDiferenteDaCompensacao ? 'text-overdue' : 'text-recovered'
-                }`}
-              >
-                {formatCurrency(computed.soma)}
+        {/* ── VitBank row: % + valor ── */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-[10px] text-muted-foreground uppercase tracking-wider">
+              % VitBank
+            </label>
+            <div className="relative">
+              <input
+                type="number"
+                step="1"
+                min="0"
+                max="100"
+                value={v.percentVitbank}
+                onChange={e => handlePercentVitbankChange(parseFloat(e.target.value) || 0)}
+                className={`${inputMonoCls} pr-7`}
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-muted-foreground">
+                %
               </span>
             </div>
-            {somaDiferenteDaCompensacao && (
-              <div className="flex items-start gap-2 text-[11px] text-overdue bg-overdue/10 border border-overdue/20 rounded-lg px-2 py-1.5">
-                <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                <span>
-                  Diferença de {formatCurrency(Math.abs(computed.soma - v.valorCompensacao))} entre a soma e o valor de compensação.
-                </span>
-              </div>
-            )}
-          </>
+          </div>
+          <div>
+            <label className="text-[10px] text-muted-foreground uppercase tracking-wider">
+              VitBank (R$)
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={v.vitbank || ''}
+              onChange={e => handleValorVitbankChange(parseFloat(e.target.value) || 0)}
+              placeholder="0,00"
+              className={inputMonoCls}
+            />
+          </div>
+        </div>
+
+        {/* ── Monetali row: % + valor ── */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-[10px] text-muted-foreground uppercase tracking-wider">
+              % Monetali
+            </label>
+            <div className="relative">
+              <input
+                type="number"
+                step="1"
+                min="0"
+                max="100"
+                value={v.percentMonetali}
+                onChange={e => handlePercentMonetaliChange(parseFloat(e.target.value) || 0)}
+                className={`${inputMonoCls} pr-7`}
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-muted-foreground">
+                %
+              </span>
+            </div>
+          </div>
+          <div>
+            <label className="text-[10px] text-muted-foreground uppercase tracking-wider">
+              Monetali (R$)
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={v.monetali || ''}
+              onChange={e => handleValorMonetaliChange(parseFloat(e.target.value) || 0)}
+              placeholder="0,00"
+              className={inputMonoCls}
+            />
+          </div>
+        </div>
+
+        {/* Soma */}
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-muted-foreground">Soma VitBank + Monetali</span>
+          <span
+            className={`font-mono font-bold ${
+              somaDiferenteDaCompensacao ? 'text-overdue' : 'text-recovered'
+            }`}
+          >
+            {formatCurrency(soma)}
+          </span>
+        </div>
+        {somaDiferenteDaCompensacao && (
+          <div className="flex items-start gap-2 text-[11px] text-overdue bg-overdue/10 border border-overdue/20 rounded-lg px-2 py-1.5">
+            <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+            <span>
+              Diferença de {formatCurrency(Math.abs(soma - v.valorCompensacao))} entre a soma e o valor de compensação.
+            </span>
+          </div>
         )}
       </div>
 
