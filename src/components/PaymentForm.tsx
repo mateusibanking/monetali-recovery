@@ -406,6 +406,7 @@ const PaymentForm = ({
                 })
               }
               className={`${inputMonoCls} pr-7`}
+            />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-muted-foreground">
                     %
                   </span>
