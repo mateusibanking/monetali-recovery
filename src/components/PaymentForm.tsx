@@ -44,6 +44,7 @@ export interface PaymentFormValue {
   valorCompensacao: number;
   modoAutomatico: boolean;
   percentVitbank: number;
+  percentMonetali: number;
   vitbank: number;
   monetali: number;
   vctoVitbank: string;
@@ -57,6 +58,7 @@ export const emptyPaymentFormValue = (): PaymentFormValue => ({
   valorCompensacao: 0,
   modoAutomatico: true,
   percentVitbank: 75,
+  percentMonetali: 5,
   vitbank: 0,
   monetali: 0,
   vctoVitbank: '',
@@ -123,7 +125,7 @@ const PaymentForm = ({
   const computed = useMemo(() => {
     const comp = v.valorCompensacao || 0;
     const pctVb = Math.max(0, Math.min(100, v.percentVitbank || 0));
-    const pctMon = 100 - pctVb;
+    const pctMon = Math.max(0, Math.min(100, v.percentMonetali || 0));
 
     if (v.modoAutomatico) {
       const vb = Math.round(comp * (pctVb / 100) * 100) / 100;
@@ -385,15 +387,25 @@ const PaymentForm = ({
               </div>
               <div>
                 <label className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                  % Monetali (automático)
+                  % Monetali
                 </label>
                 <div className="relative">
                   <input
                     type="text"
-                    disabled
-                    value={computed.pctMon}
-                    className={`${readonlyCls} pr-7`}
-                  />
+              type="number"
+              step="1"
+              min="0"
+              max="100"
+              value={v.percentMonetali}
+              onChange={e =>
+                patch({
+                  percentMonetali: Math.max(
+                    0,
+                    Math.min(100, parseFloat(e.target.value) || 0)
+                  ),
+                })
+              }
+              className={`${inputMonoCls} pr-7`}
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-muted-foreground">
                     %
                   </span>
