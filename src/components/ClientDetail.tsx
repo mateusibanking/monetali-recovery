@@ -477,7 +477,7 @@ const ClientDetail = ({ client, onBack }: Props) => {
                       <td className="px-3 py-2.5 font-mono text-muted-foreground text-right hidden lg:table-cell whitespace-nowrap">
                         {fmtDate(p.vctoVitbank)}
                       </td>
-                      <td className="px-3 py-2.5 text-center relative">
+                      <td className="px-3 py-2.5 text-center">
                         {p.pgtoVitbank ? (
                           <div className="flex items-center justify-center gap-1">
                             <span className="text-recovered">✓</span>
@@ -495,28 +495,6 @@ const ClientDetail = ({ client, onBack }: Props) => {
                             ✕
                           </button>
                         )}
-                        {markingPaid?.paymentId === p.id && markingPaid.side === 'vitbank' && (
-                          <div className="absolute right-0 top-full mt-1 z-40 bg-card border border-border rounded-lg shadow-xl p-4 min-w-[260px]" onClick={e => e.stopPropagation()}>
-                            <p className="text-xs font-semibold mb-2 text-partial">Pagamento VitBank</p>
-                            <p className="text-[11px] text-muted-foreground mb-2">Valor devido: {formatCurrency(p.vitbank || 0)}</p>
-                            <div className="space-y-2">
-                              <div>
-                                <label className="text-[10px] text-muted-foreground uppercase">Data pagamento</label>
-                                <input type="date" value={markPaidForm.data} onChange={e => setMarkPaidForm(prev => ({...prev, data: e.target.value}))}
-                                  className="w-full mt-0.5 px-2 py-1.5 bg-secondary/50 border border-border/50 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary/50" />
-                              </div>
-                              <div>
-                                <label className="text-[10px] text-muted-foreground uppercase">Valor pago (R$)</label>
-                                <input type="number" step="0.01" value={markPaidForm.valor} onChange={e => setMarkPaidForm(prev => ({...prev, valor: parseFloat(e.target.value) || 0}))}
-                                  className="w-full mt-0.5 px-2 py-1.5 bg-secondary/50 border border-border/50 rounded text-xs font-mono focus:outline-none focus:ring-1 focus:ring-primary/50" />
-                              </div>
-                              <div className="flex gap-2 pt-1">
-                                <button onClick={() => setMarkingPaid(null)} className="flex-1 px-2 py-1.5 text-[10px] border border-border/50 rounded text-muted-foreground hover:text-foreground">Cancelar</button>
-                                <button onClick={() => handleMarkPaid(p, 'vitbank')} className="flex-1 px-2 py-1.5 text-[10px] bg-primary text-primary-foreground rounded font-semibold hover:bg-primary/90">Confirmar</button>
-                              </div>
-                            </div>
-                          </div>
-                        )}
                       </td>
                       <td className="px-3 py-2.5 font-mono font-semibold text-right text-recovered">
                         {(p.monetali || 0) > 0 ? formatCurrency(p.monetali!) : <span className="text-muted-foreground">—</span>}
@@ -524,7 +502,7 @@ const ClientDetail = ({ client, onBack }: Props) => {
                       <td className="px-3 py-2.5 font-mono text-muted-foreground text-right hidden lg:table-cell whitespace-nowrap">
                         {fmtDate(p.vctoMonetali)}
                       </td>
-                      <td className="px-3 py-2.5 text-center relative">
+                      <td className="px-3 py-2.5 text-center">
                         {p.pgtoMonetali ? (
                           <div className="flex items-center justify-center gap-1">
                             <span className="text-recovered">✓</span>
@@ -541,28 +519,6 @@ const ClientDetail = ({ client, onBack }: Props) => {
                           >
                             ✕
                           </button>
-                        )}
-                        {markingPaid?.paymentId === p.id && markingPaid.side === 'monetali' && (
-                          <div className="absolute right-0 top-full mt-1 z-40 bg-card border border-border rounded-lg shadow-xl p-4 min-w-[260px]" onClick={e => e.stopPropagation()}>
-                            <p className="text-xs font-semibold mb-2 text-recovered">Pagamento Monetali</p>
-                            <p className="text-[11px] text-muted-foreground mb-2">Valor devido: {formatCurrency(p.monetali || 0)}</p>
-                            <div className="space-y-2">
-                              <div>
-                                <label className="text-[10px] text-muted-foreground uppercase">Data pagamento</label>
-                                <input type="date" value={markPaidForm.data} onChange={e => setMarkPaidForm(prev => ({...prev, data: e.target.value}))}
-                                  className="w-full mt-0.5 px-2 py-1.5 bg-secondary/50 border border-border/50 rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary/50" />
-                              </div>
-                              <div>
-                                <label className="text-[10px] text-muted-foreground uppercase">Valor pago (R$)</label>
-                                <input type="number" step="0.01" value={markPaidForm.valor} onChange={e => setMarkPaidForm(prev => ({...prev, valor: parseFloat(e.target.value) || 0}))}
-                                  className="w-full mt-0.5 px-2 py-1.5 bg-secondary/50 border border-border/50 rounded text-xs font-mono focus:outline-none focus:ring-1 focus:ring-primary/50" />
-                              </div>
-                              <div className="flex gap-2 pt-1">
-                                <button onClick={() => setMarkingPaid(null)} className="flex-1 px-2 py-1.5 text-[10px] border border-border/50 rounded text-muted-foreground hover:text-foreground">Cancelar</button>
-                                <button onClick={() => handleMarkPaid(p, 'monetali')} className="flex-1 px-2 py-1.5 text-[10px] bg-primary text-primary-foreground rounded font-semibold hover:bg-primary/90">Confirmar</button>
-                              </div>
-                            </div>
-                          </div>
                         )}
                       </td>
                       <td className="px-3 py-2.5 font-mono text-right text-negotiation relative">
@@ -712,6 +668,115 @@ const ClientDetail = ({ client, onBack }: Props) => {
             </div>
           </div>
         )}
+
+        {/* ═══ Modal: Registrar Pagamento VitBank / Monetali ═══ */}
+        {markingPaid && (() => {
+          const targetPayment = payments.find(p => p.id === markingPaid.paymentId);
+          if (!targetPayment) return null;
+          const side = markingPaid.side;
+          const sideLabel = side === 'vitbank' ? 'VitBank' : 'Monetali';
+          const valorDevido = side === 'vitbank' ? (targetPayment.vitbank || 0) : (targetPayment.monetali || 0);
+
+          return (
+            <div
+              className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+              onClick={() => setMarkingPaid(null)}
+            >
+              <div
+                className="bg-card rounded-xl border border-border shadow-xl p-6 w-full max-w-md"
+                onClick={e => e.stopPropagation()}
+              >
+                <div className="flex items-start justify-between mb-5">
+                  <h3 className="text-lg font-semibold font-display">
+                    Registrar Pagamento {sideLabel}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setMarkingPaid(null)}
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label="Fechar"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+
+                {/* Contexto */}
+                <div className="bg-secondary/30 border border-border/30 rounded-lg p-3 mb-5 space-y-1.5">
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="text-muted-foreground w-28 shrink-0">Cliente:</span>
+                    <span className="font-medium text-foreground">{client.nome}</span>
+                  </div>
+                  {targetPayment.descricao && (
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="text-muted-foreground w-28 shrink-0">Imposto:</span>
+                      <span className="font-medium text-foreground">{targetPayment.descricao}</span>
+                    </div>
+                  )}
+                  {targetPayment.mesReferencia && (
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="text-muted-foreground w-28 shrink-0">Mês Referência:</span>
+                      <span className="font-medium text-foreground">{targetPayment.mesReferencia}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Valor devido (destaque) */}
+                <div className={`rounded-lg p-3 mb-5 ${side === 'vitbank' ? 'bg-partial/10 border border-partial/25' : 'bg-recovered/10 border border-recovered/25'}`}>
+                  <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground mb-0.5">Valor devido</p>
+                  <p className={`text-xl font-mono font-bold ${side === 'vitbank' ? 'text-partial' : 'text-recovered'}`}>
+                    {formatCurrency(valorDevido)}
+                  </p>
+                </div>
+
+                {/* Campos */}
+                <div className="space-y-4 mb-6">
+                  <div>
+                    <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground block mb-1">
+                      Data Pagamento
+                    </label>
+                    <input
+                      type="date"
+                      value={markPaidForm.data}
+                      onChange={e => setMarkPaidForm(prev => ({ ...prev, data: e.target.value }))}
+                      className="w-full px-3 py-2 bg-secondary/50 border border-border/50 rounded-lg text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground block mb-1">
+                      Valor Pago (R$)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={markPaidForm.valor}
+                      onChange={e => setMarkPaidForm(prev => ({ ...prev, valor: parseFloat(e.target.value) || 0 }))}
+                      className="w-full px-3 py-2 bg-secondary/50 border border-border/50 rounded-lg text-sm font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 transition-colors"
+                    />
+                  </div>
+                </div>
+
+                {/* Botões */}
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/50">
+                  <button
+                    type="button"
+                    onClick={() => setMarkingPaid(null)}
+                    className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleMarkPaid(targetPayment, side)}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
+                  >
+                    Confirmar Pagamento
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* FLAGS */}
