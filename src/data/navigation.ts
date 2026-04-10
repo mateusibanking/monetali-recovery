@@ -1,4 +1,4 @@
-import { LayoutDashboard, AlertCircle, CheckCircle2, UserPlus, ClipboardList, TrendingUp, Settings, Upload } from 'lucide-react';
+import { LayoutDashboard, AlertCircle, CheckCircle2, UserPlus, ClipboardList, TrendingUp, Settings, Upload, BarChart2 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 export interface NavItem {
@@ -18,6 +18,7 @@ export const navItems: NavItem[] = [
   { title: 'Cadastrar', url: '/cadastrar', icon: UserPlus },
   { title: 'Importação', url: '/importacao', icon: Upload },
   { title: 'Premissas', url: '/premissas', icon: Settings },
+  { title: 'Dashboard Financeiro', url: '/dashboard-financeiro', icon: BarChart2 },
 ];
 
 export const bottomNavItems = navItems.filter(item => item.showInBottomNav);
