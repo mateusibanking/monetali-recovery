@@ -431,14 +431,6 @@ const PaymentForm = ({
             {formatCurrency(soma)}
           </span>
         </div>
-        {somaDiferenteDaCompensacao && (
-          <div className="flex items-start gap-2 text-[11px] text-overdue bg-overdue/10 border border-overdue/20 rounded-lg px-2 py-1.5">
-            <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-            <span>
-              Diferença de {formatCurrency(Math.abs(soma - v.valorCompensacao))} entre a soma e o valor de compensação.
-            </span>
-          </div>
-        )}
       </div>
 
       {/* ═══ Datas de vencimento ═══ */}
