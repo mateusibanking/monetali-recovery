@@ -128,6 +128,8 @@ const dbStatusToSituacao: Record<string, Situacao> = {
   'juridico': 'JURÍDICO',
   'parcelado': 'PARCELADO',
   'distrato': 'DISTRATO',
+  'cancelado': 'CANCELADO',
+  'suspenso': 'SUSPENSO',
 };
 
 const situacaoToDbStatus: Record<Situacao, string> = {
@@ -141,6 +143,8 @@ const situacaoToDbStatus: Record<Situacao, string> = {
   'JURÍDICO': 'juridico',
   'PARCELADO': 'parcelado',
   'DISTRATO': 'distrato',
+  'CANCELADO': 'cancelado',
+  'SUSPENSO': 'suspenso',
 };
 
 const dbPaymentStatusToFrontend: Record<string, PaymentStatus> = {

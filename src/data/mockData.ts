@@ -8,7 +8,9 @@ export type Situacao =
   | 'PAGO'
   | 'JURÍDICO'
   | 'PARCELADO'
-  | 'DISTRATO';
+  | 'DISTRATO'
+  | 'CANCELADO'
+  | 'SUSPENSO';
 
 export type Flag = 'Prioridade' | 'Juros' | 'Sem Contato' | 'Jurídico' | 'Parcelamento' | 'Promessa de Pgto' | string;
 
@@ -162,6 +164,8 @@ export const situacaoLabels: Record<Situacao, string> = {
   'JURÍDICO': 'Jurídico',
   'PARCELADO': 'Parcelado',
   'DISTRATO': 'Distrato',
+  'CANCELADO': 'Cancelado',
+  'SUSPENSO': 'Suspenso',
 };
 
 export const situacaoColors: Record<Situacao, string> = {
@@ -175,6 +179,8 @@ export const situacaoColors: Record<Situacao, string> = {
   'JURÍDICO': 'status-juridico',
   'PARCELADO': 'status-parcelado',
   'DISTRATO': 'status-distrato',
+  'CANCELADO': 'status-cancelado',
+  'SUSPENSO': 'status-suspenso',
 };
 
 export const DEFAULT_FLAGS: Flag[] = ['Prioridade', 'Juros', 'Sem Contato', 'Jurídico', 'Parcelamento', 'Promessa de Pgto'];

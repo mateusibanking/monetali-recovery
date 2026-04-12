@@ -10,15 +10,17 @@ import LoadingSkeleton from '@/components/LoadingSkeleton';
 
 const COLORS_STATUS: Record<Situacao, string> = {
   'NÃO INICIADO': '#9ca3af',
-  'EM ANDAMENTO': '#3b82f6',
-  'PENDENTE': '#f59e0b',
+  'EM ANDAMENTO': '#f59e0b',
+  'PENDENTE': '#f97316',
   'CONTATADO': '#06b6d4',
   'EM NEGOCIAÇÃO': '#6366f1',
   'ACORDO FECHADO': '#14b8a6',
   'PAGO': '#22c55e',
   'JURÍDICO': '#8b5cf6',
-  'PARCELADO': '#D4A843',
+  'PARCELADO': '#3b82f6',
   'DISTRATO': '#ef4444',
+  'CANCELADO': '#991b1b',
+  'SUSPENSO': '#8b5cf6',
 };
 
 const AGING_COLORS = ['#316AB4', '#D4A843', '#ef4444', '#0D2C60'];
