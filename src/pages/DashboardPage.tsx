@@ -4,6 +4,7 @@ import { AlertCircle } from 'lucide-react';
 import { situacaoLabels, formatCurrency, Situacao } from '@/data/mockData';
 import { useDashboard } from '@/hooks/useDashboard';
 import KpiCards from '@/components/KpiCards';
+import RecuperacaoChart from '@/components/RecuperacaoChart';
 import MonthSelector, { DEFAULT_MONTH } from '@/components/MonthSelector';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 
@@ -74,6 +75,8 @@ const DashboardPage = () => {
         pagamentosEmAberto={pagamentosEmAberto}
         pagamentosQuitados={pagamentosQuitados}
       />
+
+      <RecuperacaoChart />
 
       {!hasData && (
         <div className="glass-card p-12 flex flex-col items-center justify-center text-center">
