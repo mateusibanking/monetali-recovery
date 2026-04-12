@@ -35,6 +35,12 @@ export interface Payment {
   mesReferencia?: string | null;
   dataCobranca?: string | null;
   dataPagamento?: string | null;
+  // Campos de inadimplência (TAREFA A)
+  isInadimplente?: boolean;
+  valorPagoEfetivo?: number;
+  valorInadimplente?: number;
+  dataPagamentoEfetivo?: string | null;
+  mesRecuperacao?: string | null;
 }
 
 export interface TimelineEvent {
@@ -61,6 +67,8 @@ export interface Client {
   situacao: Situacao;
   flags: Flag[];
   mes_referencia: string;
+  valorInadimplente?: number;
+  valorRecuperado?: number;
 }
 
 export interface CollectionEvent {

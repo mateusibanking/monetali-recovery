@@ -1,57 +1,64 @@
-import { DollarSign, Users, TrendingUp, AlertTriangle, CreditCard, Smartphone, UserPlus } from 'lucide-react';
-import { Client, formatCurrency } from '@/data/mockData';
+import { AlertTriangle, CheckCircle2, DollarSign, TrendingUp } from 'lucide-react';
+import { formatCurrency } from '@/data/mockData';
 
 interface KpiCardsProps {
-  clients?: Client[];
+  totalInadimplente: number;
+  totalRecuperado: number;
+  pagamentosEmAberto: number;
+  pagamentosQuitados: number;
 }
 
-const KpiCards = ({ clients: clientsProp }: KpiCardsProps) => {
-  // If no clients passed, import all
-  const clients = clientsProp ?? [];
-
-  const totalCompensacao = clients.reduce((s, c) => s + c.compensacao, 0);
-  const totalBoleto = clients.reduce((s, c) => s + c.boletoVitbank, 0);
-  const totalPix = clients.reduce((s, c) => s + c.pixMonetali, 0);
-  const totalJuros = clients.reduce((s, c) => s + c.juros, 0);
-  const naoPagos = clients.filter(c => c.situacao === 'PENDENTE' || c.situacao === 'NÃO INICIADO').length;
-  const criticalCount = clients.filter(c => c.diasAtraso > 90).length;
-  const novosCadastros = clients.length;
-
+const KpiCards = ({
+  totalInadimplente,
+  totalRecuperado,
+  pagamentosEmAberto,
+  pagamentosQuitados,
+}: KpiCardsProps) => {
   const kpis = [
-    { label: 'Total Compensação', value: formatCurrency(totalCompensacao), icon: DollarSign, color: 'text-overdue' },
-    { label: 'Total VitBank', value: formatCurrency(totalBoleto), icon: CreditCard, color: 'text-partial' },
-    { label: 'Total Monetali', value: formatCurrency(totalPix), icon: Smartphone, color: 'text-recovered' },
-    { label: 'Total Juros', value: formatCurrency(totalJuros), icon: TrendingUp, color: 'text-negotiation' },
-    { label: 'Não Pagos', value: naoPagos.toString(), icon: AlertTriangle, color: 'text-legal' },
-    { label: 'Crítico (>90d)', value: criticalCount.toString(), icon: Users, color: 'text-overdue' },
-    { label: 'Clientes', value: novosCadastros.toString(), icon: UserPlus, color: 'text-primary' },
+    {
+      label: 'Total Inadimplente',
+      value: formatCurrency(totalInadimplente),
+      icon: DollarSign,
+      color: 'text-red-600',
+      bg: 'bg-red-50 border-red-100',
+    },
+    {
+      label: 'Total Recuperado',
+      value: formatCurrency(totalRecuperado),
+      icon: TrendingUp,
+      color: 'text-green-600',
+      bg: 'bg-green-50 border-green-100',
+    },
+    {
+      label: 'Pagamentos em Aberto',
+      value: pagamentosEmAberto.toString(),
+      icon: AlertTriangle,
+      color: 'text-orange-600',
+      bg: 'bg-orange-50 border-orange-100',
+    },
+    {
+      label: 'Pagamentos Quitados',
+      value: pagamentosQuitados.toString(),
+      icon: CheckCircle2,
+      color: 'text-emerald-600',
+      bg: 'bg-emerald-50 border-emerald-100',
+    },
   ];
 
-  if (clients.length === 0) {
-    return (
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
-        {kpis.map((kpi) => (
-          <div key={kpi.label} className="glass-card p-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground leading-tight">{kpi.label}</span>
-              <kpi.icon className="h-4 w-4 text-muted-foreground/40 shrink-0" />
-            </div>
-            <p className="text-lg font-bold font-mono text-muted-foreground/40">—</p>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       {kpis.map((kpi) => (
-        <div key={kpi.label} className="glass-card p-4 group hover:border-primary/30 transition-all duration-300">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground leading-tight">{kpi.label}</span>
-            <kpi.icon className={`h-4 w-4 ${kpi.color} shrink-0`} />
+        <div
+          key={kpi.label}
+          className={`p-5 rounded-xl border transition-all duration-300 hover:shadow-md ${kpi.bg}`}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground leading-tight">
+              {kpi.label}
+            </span>
+            <kpi.icon className={`h-5 w-5 ${kpi.color} shrink-0`} />
           </div>
-          <p className={`text-lg font-bold font-mono ${kpi.color}`}>{kpi.value}</p>
+          <p className={`text-xl font-bold font-mono ${kpi.color}`}>{kpi.value}</p>
         </div>
       ))}
     </div>

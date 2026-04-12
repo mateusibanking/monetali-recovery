@@ -38,7 +38,7 @@ const DashboardPage = () => {
     );
   }
 
-  const { clients, porStatus, porRegional, porExecutivo, aging } = dashboard;
+  const { clients, porStatus, porRegional, porExecutivo, aging, totalInadimplente, totalRecuperado, pagamentosEmAberto, pagamentosQuitados } = dashboard;
 
   const statusData = porStatus.map(s => ({
     name: situacaoLabels[s.situacao] || s.name,
@@ -68,7 +68,12 @@ const DashboardPage = () => {
 
       <MonthSelector selected={selectedMonth} onChange={setSelectedMonth} showTodos />
 
-      <KpiCards clients={clients} />
+      <KpiCards
+        totalInadimplente={totalInadimplente}
+        totalRecuperado={totalRecuperado}
+        pagamentosEmAberto={pagamentosEmAberto}
+        pagamentosQuitados={pagamentosQuitados}
+      />
 
       {!hasData && (
         <div className="glass-card p-12 flex flex-col items-center justify-center text-center">

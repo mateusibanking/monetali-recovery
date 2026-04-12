@@ -13,6 +13,11 @@ interface DashboardData {
   porExecutivo: { executivo: string; valor: number }[];
   aging: { faixa: string; clientes: number }[];
   recuperacoesPorMes: { mes: string; valor: number }[];
+  // Inadimplência stats
+  totalInadimplente: number;
+  totalRecuperado: number;
+  pagamentosEmAberto: number;
+  pagamentosQuitados: number;
 }
 
 interface UseDashboardReturn {
@@ -39,6 +44,10 @@ export function useDashboard(mesReferencia?: string): UseDashboardReturn {
     porExecutivo: [],
     aging: [],
     recuperacoesPorMes: [],
+    totalInadimplente: 0,
+    totalRecuperado: 0,
+    pagamentosEmAberto: 0,
+    pagamentosQuitados: 0,
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -141,6 +150,28 @@ export function useDashboard(mesReferencia?: string): UseDashboardReturn {
         .select('*')
         .order('data_recebimento', { ascending: true });
 
+      // Inadimplência stats from clientes table
+      const totalInadimplente = (clientes as DbCliente[]).reduce((s, c) => s + (Number(c.valor_inadimplente_total) || 0), 0);
+      const totalRecuperado = (clientes as DbCliente[]).reduce((s, c) => s + (Number(c.valor_recuperado_total) || 0), 0);
+
+      // Fetch pagamentos_atraso counts for em aberto / quitados
+      let pagamentosEmAberto = 0;
+      let pagamentosQuitados = 0;
+      if (clienteIds.length > 0) {
+        const { count: aberto } = await supabase
+          .from('pagamentos_atraso')
+          .select('*', { count: 'exact', head: true })
+          .is('deleted_at', null)
+          .eq('is_inadimplente', true);
+        const { count: quitado } = await supabase
+          .from('pagamentos_atraso')
+          .select('*', { count: 'exact', head: true })
+          .is('deleted_at', null)
+          .eq('is_inadimplente', false);
+        pagamentosEmAberto = aberto || 0;
+        pagamentosQuitados = quitado || 0;
+      }
+
       // Calculate aggregates from filtered clients
       const totalAtraso = filteredClients.reduce((s, c) => s + c.compensacao, 0);
 
@@ -203,6 +234,10 @@ export function useDashboard(mesReferencia?: string): UseDashboardReturn {
         porExecutivo,
         aging,
         recuperacoesPorMes,
+        totalInadimplente,
+        totalRecuperado,
+        pagamentosEmAberto,
+        pagamentosQuitados,
       });
     } catch (err: any) {
       console.error('useDashboard fetch error:', err);

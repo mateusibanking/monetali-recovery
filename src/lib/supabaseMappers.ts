@@ -27,6 +27,8 @@ export interface DbCliente {
   dias_atraso_max: number;
   juros_total: number;
   status: string;
+  valor_inadimplente_total: number;
+  valor_recuperado_total: number;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -57,6 +59,12 @@ export interface DbPagamento {
   valor_pago_monetali: number | null;
   data_cobranca: string | null;
   motivo: string | null;
+  // Campos calculados de inadimplência (TAREFA A)
+  is_inadimplente: boolean;
+  valor_pago_efetivo: number;
+  valor_inadimplente: number;
+  data_pagamento_efetivo: string | null;
+  mes_recuperacao: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -173,6 +181,8 @@ export function mapDbClienteToClient(
     situacao: dbStatusToSituacao[row.status] || 'NÃO INICIADO',
     flags,
     mes_referencia: mesReferencia,
+    valorInadimplente: Number(row.valor_inadimplente_total) || 0,
+    valorRecuperado: Number(row.valor_recuperado_total) || 0,
   };
 }
 
@@ -223,6 +233,12 @@ export function mapDbPagamentoToPayment(row: DbPagamento): Payment {
     mesReferencia: row.mes_referencia || null,
     dataCobranca: row.data_cobranca || null,
     dataPagamento: row.data_pagamento || null,
+    // Campos de inadimplência
+    isInadimplente: row.is_inadimplente ?? true,
+    valorPagoEfetivo: Number(row.valor_pago_efetivo) || 0,
+    valorInadimplente: Number(row.valor_inadimplente) || 0,
+    dataPagamentoEfetivo: row.data_pagamento_efetivo || null,
+    mesRecuperacao: row.mes_recuperacao || null,
   };
 }
 
