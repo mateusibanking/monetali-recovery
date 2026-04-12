@@ -4,13 +4,38 @@ import type { Client, Situacao } from '@/data/mockData';
 import { mapDbClienteToClient } from '@/lib/supabaseMappers';
 import type { DbCliente, DbFlagCliente, DbRecuperacao } from '@/lib/supabaseMappers';
 
+export interface RegionalGroup {
+  nome: string;
+  total: number;
+  vitbank: number;
+  monetali: number;
+  qtd: number;
+  clientes: Client[];
+}
+
+export interface ExecutivoGroup {
+  nome: string;
+  total: number;
+  vitbank: number;
+  monetali: number;
+  qtd: number;
+  clientes: Client[];
+}
+
+export interface StatusGroup {
+  name: string;
+  situacao: Situacao;
+  value: number;
+  total: number;
+}
+
 interface DashboardData {
   clients: Client[];
   totalAtraso: number;
   totalClientes: number;
-  porStatus: { name: string; value: number; situacao: Situacao }[];
-  porRegional: { regional: string; total: number }[];
-  porExecutivo: { executivo: string; valor: number }[];
+  porStatus: StatusGroup[];
+  porRegional: RegionalGroup[];
+  porExecutivo: ExecutivoGroup[];
   aging: { faixa: string; clientes: number }[];
   recuperacoesPorMes: { mes: string; valor: number }[];
   // Inadimplência stats
@@ -175,37 +200,49 @@ export function useDashboard(mesReferencia?: string): UseDashboardReturn {
       // Calculate aggregates from filtered clients
       const totalAtraso = filteredClients.reduce((s, c) => s + c.compensacao, 0);
 
-      // Status distribution (from filtered clients)
-      const statusCount: Record<string, number> = {};
+      // Status distribution (from filtered clients) — count + total value
+      const statusAgg: Record<string, { count: number; total: number }> = {};
       filteredClients.forEach(c => {
-        statusCount[c.situacao] = (statusCount[c.situacao] || 0) + 1;
+        if (!statusAgg[c.situacao]) statusAgg[c.situacao] = { count: 0, total: 0 };
+        statusAgg[c.situacao].count += 1;
+        statusAgg[c.situacao].total += c.compensacao;
       });
-      const porStatus = Object.entries(statusCount).map(([situacao, value]) => ({
+      const porStatus: StatusGroup[] = Object.entries(statusAgg).map(([situacao, agg]) => ({
         name: situacao,
-        value,
+        value: agg.count,
+        total: agg.total,
         situacao: situacao as Situacao,
       }));
 
-      // Regional distribution (from filtered clients)
-      const regionalMap: Record<string, number> = {};
+      // Regional distribution (from filtered clients) — with client lists
+      const regionalAgg: Record<string, RegionalGroup> = {};
       filteredClients.forEach(c => {
         const r = c.regional || 'Sem Regional';
-        regionalMap[r] = (regionalMap[r] || 0) + c.compensacao;
+        if (!regionalAgg[r]) regionalAgg[r] = { nome: r, total: 0, vitbank: 0, monetali: 0, qtd: 0, clientes: [] };
+        regionalAgg[r].total += c.compensacao;
+        regionalAgg[r].vitbank += c.boletoVitbank;
+        regionalAgg[r].monetali += c.pixMonetali;
+        regionalAgg[r].qtd += 1;
+        regionalAgg[r].clientes.push(c);
       });
-      const porRegional = Object.entries(regionalMap)
-        .map(([regional, total]) => ({ regional, total }))
-        .sort((a, b) => b.total - a.total);
+      const porRegional: RegionalGroup[] = Object.values(regionalAgg)
+        .sort((a, b) => b.total - a.total)
+        .map(g => ({ ...g, clientes: [...g.clientes].sort((a, b) => b.compensacao - a.compensacao) }));
 
-      // Executivo distribution (from filtered clients)
-      const execMap: Record<string, number> = {};
+      // Executivo distribution (from filtered clients) — with client lists
+      const execAgg: Record<string, ExecutivoGroup> = {};
       filteredClients.forEach(c => {
         const e = c.executivo || 'Sem Executivo';
-        execMap[e] = (execMap[e] || 0) + c.compensacao;
+        if (!execAgg[e]) execAgg[e] = { nome: e, total: 0, vitbank: 0, monetali: 0, qtd: 0, clientes: [] };
+        execAgg[e].total += c.compensacao;
+        execAgg[e].vitbank += c.boletoVitbank;
+        execAgg[e].monetali += c.pixMonetali;
+        execAgg[e].qtd += 1;
+        execAgg[e].clientes.push(c);
       });
-      const porExecutivo = Object.entries(execMap)
-        .map(([executivo, valor]) => ({ executivo, valor }))
-        .sort((a, b) => b.valor - a.valor)
-        .slice(0, 10);
+      const porExecutivo: ExecutivoGroup[] = Object.values(execAgg)
+        .sort((a, b) => b.total - a.total)
+        .map(g => ({ ...g, clientes: [...g.clientes].sort((a, b) => b.compensacao - a.compensacao) }));
 
       // Aging — ALWAYS uses all clients (not filtered by month)
       const aging = AGING_RANGES.map(r => ({

@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { AlertCircle } from 'lucide-react';
-import { situacaoLabels, formatCurrency, Situacao } from '@/data/mockData';
+import { situacaoLabels, formatCurrency, type Situacao } from '@/data/mockData';
 import { useDashboard } from '@/hooks/useDashboard';
 import KpiCards from '@/components/KpiCards';
 import RecuperacaoChart from '@/components/RecuperacaoChart';
 import MonthSelector, { DEFAULT_MONTH } from '@/components/MonthSelector';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
+import StatusCards from '@/components/StatusCards';
+import ExpandableBarChart from '@/components/ExpandableBarChart';
 
 const COLORS_STATUS: Record<Situacao, string> = {
   'NÃO INICIADO': '#9ca3af',
@@ -27,6 +29,7 @@ const AGING_COLORS = ['#316AB4', '#D4A843', '#ef4444', '#0D2C60'];
 
 const DashboardPage = () => {
   const [selectedMonth, setSelectedMonth] = useState(DEFAULT_MONTH);
+  const [activeStatus, setActiveStatus] = useState<Situacao | null>(null);
   const { data: dashboard, loading, error } = useDashboard(selectedMonth);
 
   if (loading) return <LoadingSkeleton />;
@@ -43,18 +46,48 @@ const DashboardPage = () => {
 
   const { clients, porStatus, porRegional, porExecutivo, aging, totalInadimplente, totalRecuperado, pagamentosEmAberto, pagamentosQuitados } = dashboard;
 
+  // Filter data by active status (from StatusCards click)
+  const filteredRegional = useMemo(() => {
+    if (!activeStatus) return porRegional;
+    return porRegional
+      .map(g => {
+        const filtered = g.clientes.filter(c => c.situacao === activeStatus);
+        if (filtered.length === 0) return null;
+        return {
+          ...g,
+          total: filtered.reduce((s, c) => s + c.compensacao, 0),
+          vitbank: filtered.reduce((s, c) => s + c.boletoVitbank, 0),
+          monetali: filtered.reduce((s, c) => s + c.pixMonetali, 0),
+          qtd: filtered.length,
+          clientes: filtered,
+        };
+      })
+      .filter(Boolean) as typeof porRegional;
+  }, [porRegional, activeStatus]);
+
+  const filteredExecutivo = useMemo(() => {
+    if (!activeStatus) return porExecutivo;
+    return porExecutivo
+      .map(g => {
+        const filtered = g.clientes.filter(c => c.situacao === activeStatus);
+        if (filtered.length === 0) return null;
+        return {
+          ...g,
+          total: filtered.reduce((s, c) => s + c.compensacao, 0),
+          vitbank: filtered.reduce((s, c) => s + c.boletoVitbank, 0),
+          monetali: filtered.reduce((s, c) => s + c.pixMonetali, 0),
+          qtd: filtered.length,
+          clientes: filtered,
+        };
+      })
+      .filter(Boolean) as typeof porExecutivo;
+  }, [porExecutivo, activeStatus]);
+
   const statusData = porStatus.map(s => ({
     name: situacaoLabels[s.situacao] || s.name,
     value: s.value,
     color: COLORS_STATUS[s.situacao] || '#6b7280',
   })).filter(d => d.value > 0);
-
-  const regionalData = porRegional;
-
-  const execData = porExecutivo.map(e => ({
-    executivo: e.executivo.split(' ')[0],
-    valor: e.valor,
-  }));
 
   const tooltipStyle = {
     contentStyle: { background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12, color: '#333' },
@@ -78,6 +111,15 @@ const DashboardPage = () => {
         pagamentosQuitados={pagamentosQuitados}
       />
 
+      {/* Status Cards — clickable filters */}
+      {hasData && (
+        <StatusCards
+          data={porStatus}
+          activeStatus={activeStatus}
+          onStatusClick={setActiveStatus}
+        />
+      )}
+
       <RecuperacaoChart />
 
       {!hasData && (
@@ -92,55 +134,55 @@ const DashboardPage = () => {
         </div>
       )}
 
-      {hasData && <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="glass-card p-5" style={{ minHeight: 400 }}>
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4 font-display">Distribuição por Status</h3>
-          <ResponsiveContainer width="100%" height={340}>
-            <PieChart>
-              <Pie data={statusData} dataKey="value" nameKey="name" cx="50%" cy="45%" outerRadius={90} innerRadius={45} strokeWidth={2} stroke="#ffffff">
-                {statusData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-              </Pie>
-              <Tooltip {...tooltipStyle} />
-              <Legend verticalAlign="bottom" height={36} formatter={(value: string) => <span style={{ color: '#333', fontSize: 12 }}>{value}</span>} />
-            </PieChart>
-          </ResponsiveContainer>
+      {/* Expandable Bar Charts — Regional & Executivo */}
+      {hasData && (
+        <>
+          <ExpandableBarChart
+            title="Inadimplência por Regional"
+            data={filteredRegional}
+            barColor="#316AB4"
+            topN={10}
+          />
+
+          <ExpandableBarChart
+            title="Inadimplência por Executivo"
+            data={filteredExecutivo}
+            barColor="#16a34a"
+            topN={10}
+          />
+        </>
+      )}
+
+      {/* Existing charts — Status distribution + Aging */}
+      {hasData && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="glass-card p-5" style={{ minHeight: 400 }}>
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4 font-display">Distribuição por Status</h3>
+            <ResponsiveContainer width="100%" height={340}>
+              <PieChart>
+                <Pie data={statusData} dataKey="value" nameKey="name" cx="50%" cy="45%" outerRadius={90} innerRadius={45} strokeWidth={2} stroke="#ffffff">
+                  {statusData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                </Pie>
+                <Tooltip {...tooltipStyle} />
+                <Legend verticalAlign="bottom" height={36} formatter={(value: string) => <span style={{ color: '#333', fontSize: 12 }}>{value}</span>} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="glass-card p-5">
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4 font-display">Aging por Faixa de Atraso</h3>
+            <ResponsiveContainer width="100%" height={320}>
+              <BarChart data={aging} barSize={40}>
+                <XAxis dataKey="faixa" tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                <Tooltip {...tooltipStyle} />
+                <Bar dataKey="clientes" radius={[6, 6, 0, 0]}>
+                  {aging.map((_, i) => <Cell key={i} fill={AGING_COLORS[i]} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
-        <div className="glass-card p-5">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4 font-display">Aging por Faixa de Atraso</h3>
-          <ResponsiveContainer width="100%" height={320}>
-            <BarChart data={aging} barSize={40}>
-              <XAxis dataKey="faixa" tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} allowDecimals={false} />
-              <Tooltip {...tooltipStyle} />
-              <Bar dataKey="clientes" radius={[6, 6, 0, 0]}>
-                {aging.map((_, i) => <Cell key={i} fill={AGING_COLORS[i]} />)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="glass-card p-5">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4 font-display">Inadimplência por Regional</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={regionalData} layout="vertical" barSize={24}>
-              <XAxis type="number" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `R$${(v / 1_000_000).toFixed(1)}M`} />
-              <YAxis type="category" dataKey="regional" tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} width={70} />
-              <Tooltip {...tooltipStyle} formatter={(v: number) => formatCurrency(v)} />
-              <Bar dataKey="total" fill="#316AB4" radius={[0, 6, 6, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="glass-card p-5">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4 font-display">Top Executivos (Carteira)</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={execData} layout="vertical" barSize={20}>
-              <XAxis type="number" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `R$${(v / 1_000_000).toFixed(1)}M`} />
-              <YAxis type="category" dataKey="executivo" tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} width={90} />
-              <Tooltip {...tooltipStyle} formatter={(v: number) => formatCurrency(v)} />
-              <Bar dataKey="valor" fill="#D4A843" radius={[0, 6, 6, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>}
+      )}
     </div>
   );
 };
