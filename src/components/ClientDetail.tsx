@@ -376,6 +376,36 @@ const ClientDetail = ({ client, onBack }: Props) => {
         </div>
       )}
 
+      {/* RESUMO INADIMPLÊNCIA */}
+      <div className="glass-card p-5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="p-4 rounded-lg bg-red-50 border border-red-100">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-red-600 mb-1">Inadimplente</p>
+            <p className="text-lg font-bold font-mono text-red-700">
+              {formatCurrency(client.valorInadimplente || 0)}
+            </p>
+          </div>
+          <div className="p-4 rounded-lg bg-green-50 border border-green-100">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-green-600 mb-1">Recuperado</p>
+            <p className="text-lg font-bold font-mono text-green-700">
+              {formatCurrency(client.valorRecuperado || 0)}
+            </p>
+          </div>
+          <div className="p-4 rounded-lg bg-blue-50 border border-blue-100">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-blue-600 mb-1">Compensação Total</p>
+            <p className="text-lg font-bold font-mono text-blue-700">
+              {formatCurrency(form.compensacao)}
+            </p>
+          </div>
+          <div className="p-4 rounded-lg bg-amber-50 border border-amber-100">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-amber-600 mb-1">Juros Total</p>
+            <p className="text-lg font-bold font-mono text-amber-700">
+              {formatCurrency(form.juros)}
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* PAGAMENTOS */}
       <div className="glass-card p-6">
         <div className="flex items-center justify-between mb-4">
@@ -446,14 +476,15 @@ const ClientDetail = ({ client, onBack }: Props) => {
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-border/50 text-left bg-secondary/20">
+                  <th className="px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
                   <th className="px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider">Mês Ref.</th>
                   <th className="px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-right">Compensação</th>
-                  <th className="px-3 py-2 font-semibold text-partial uppercase tracking-wider text-right">VitBank</th>
-                  <th className="px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-right hidden lg:table-cell">Vcto VB</th>
-                  <th className="px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-right">Pago VB</th>
-                  <th className="px-3 py-2 font-semibold text-recovered uppercase tracking-wider text-right">Monetali</th>
-                  <th className="px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-right hidden lg:table-cell">Vcto Mon.</th>
-                  <th className="px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-right">Pago Mon.</th>
+                  <th className="px-3 py-2 font-semibold text-blue-600 uppercase tracking-wider text-right">VITBANK</th>
+                  <th className="px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-right hidden lg:table-cell">Vcto</th>
+                  <th className="px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-right">Pago</th>
+                  <th className="px-3 py-2 font-semibold text-emerald-600 uppercase tracking-wider text-right">MONETALI</th>
+                  <th className="px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-right hidden lg:table-cell">Vcto</th>
+                  <th className="px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-right">Pago</th>
                   <th className="px-3 py-2 font-semibold text-negotiation uppercase tracking-wider text-right">Juros</th>
                   <th className="px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider">Ações</th>
                 </tr>
@@ -464,7 +495,16 @@ const ClientDetail = ({ client, onBack }: Props) => {
                     d ? new Date(d).toLocaleDateString('pt-BR') : '—';
                   const bd = computeJurosBreakdown(p);
                   return (
-                    <tr key={p.id} className="border-b border-border/30 hover:bg-secondary/30 transition-colors">
+                    <tr key={p.id} className={`border-b border-border/30 hover:bg-secondary/30 transition-colors ${p.isInadimplente ? 'bg-red-50/30' : 'bg-green-50/30'}`}>
+                      <td className="px-3 py-2.5">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                          p.isInadimplente
+                            ? 'bg-red-100 text-red-700 border border-red-200'
+                            : 'bg-green-100 text-green-700 border border-green-200'
+                        }`}>
+                          {p.isInadimplente ? 'Inadimplente' : 'Quitado'}
+                        </span>
+                      </td>
                       <td className="px-3 py-2.5 font-mono text-muted-foreground whitespace-nowrap">
                         {p.mesReferencia || fmtDate(p.dataVencimento)}
                       </td>
@@ -594,7 +634,7 @@ const ClientDetail = ({ client, onBack }: Props) => {
               </tbody>
               <tfoot>
                 <tr className="border-t-2 border-border bg-secondary/40 text-[11px]">
-                  <td className="px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider" colSpan={2}>
+                  <td className="px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider" colSpan={3}>
                     Totais
                   </td>
                   <td className="px-3 py-2 font-mono font-bold text-right text-partial">
