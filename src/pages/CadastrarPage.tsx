@@ -77,13 +77,13 @@ const CadastrarPage = () => {
     if (!paymentValue.valorCompensacao || paymentValue.valorCompensacao <= 0)
       return 'Valor Compensação é obrigatório e deve ser maior que zero.';
     if (!paymentValue.vctoVitbank && !paymentValue.vctoMonetali)
-      return 'Informe ao menos uma data de vencimento (VitBank ou Monetali).';
+      return 'Informe ao menos uma data de vencimento (VITBANK ou MONETALI).';
     if (!paymentValue.mesReferencia) return 'Mês de referência é obrigatório.';
 
     // Sum must match compensation
     const somaVbMon = (paymentValue.vitbank || 0) + (paymentValue.monetali || 0);
     if (paymentValue.valorCompensacao > 0 && Math.abs(somaVbMon - paymentValue.valorCompensacao) > 0.01) {
-      return `Soma VitBank + Monetali (${formatCurrency(somaVbMon)}) deve bater com o valor de compensação (${formatCurrency(paymentValue.valorCompensacao)}).`;
+      return `Soma VITBANK + MONETALI (${formatCurrency(somaVbMon)}) deve bater com o valor de compensação (${formatCurrency(paymentValue.valorCompensacao)}).`;
     }
     return null;
   };

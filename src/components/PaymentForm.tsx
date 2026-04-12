@@ -194,9 +194,9 @@ const PaymentForm = ({
     if (!v.valorCompensacao || v.valorCompensacao <= 0)
       return 'Valor Compensação é obrigatório e deve ser maior que zero.';
     if (!v.vctoVitbank && !v.vctoMonetali)
-      return 'Informe ao menos uma data de vencimento (VitBank ou Monetali).';
+      return 'Informe ao menos uma data de vencimento (VITBANK ou MONETALI).';
     if (somaDiferenteDaCompensacao)
-      return `Soma VitBank + Monetali (${formatCurrency(soma)}) deve bater com o valor de compensação (${formatCurrency(v.valorCompensacao)}).`;
+      return `Soma VITBANK + MONETALI (${formatCurrency(soma)}) deve bater com o valor de compensação (${formatCurrency(v.valorCompensacao)}).`;
     if (!v.mesReferencia) return 'Mês de referência é obrigatório.';
     return null;
   };
@@ -351,18 +351,18 @@ const PaymentForm = ({
         <div className="flex items-center gap-2">
           <Calculator className="h-4 w-4 text-accent" />
           <p className="text-xs font-semibold uppercase tracking-wider text-accent">
-            Cálculo VitBank / Monetali
+            Cálculo VITBANK / MONETALI
           </p>
           <span className="text-[10px] text-muted-foreground ml-auto">
             Altere % ou valor — o outro atualiza automaticamente
           </span>
         </div>
 
-        {/* ── VitBank row: % + valor ── */}
+        {/* ── VITBANK row: % + valor ── */}
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="text-[10px] text-muted-foreground uppercase tracking-wider">
-              % VitBank
+              % VITBANK
             </label>
             <div className="relative">
               <input
@@ -381,7 +381,7 @@ const PaymentForm = ({
           </div>
           <div>
             <label className="text-[10px] text-muted-foreground uppercase tracking-wider">
-              VitBank (R$)
+              VITBANK (R$)
             </label>
             <input
               type="number"
@@ -395,11 +395,11 @@ const PaymentForm = ({
           </div>
         </div>
 
-        {/* ── Monetali row: % + valor ── */}
+        {/* ── MONETALI row: % + valor ── */}
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="text-[10px] text-muted-foreground uppercase tracking-wider">
-              % Monetali
+              % MONETALI
             </label>
             <div className="relative">
               <input
@@ -418,7 +418,7 @@ const PaymentForm = ({
           </div>
           <div>
             <label className="text-[10px] text-muted-foreground uppercase tracking-wider">
-              Monetali (R$)
+              MONETALI (R$)
             </label>
             <input
               type="number"
@@ -434,7 +434,7 @@ const PaymentForm = ({
 
         {/* Soma */}
         <div className="flex items-center justify-between text-xs">
-          <span className="text-muted-foreground">Soma VitBank + Monetali</span>
+          <span className="text-muted-foreground">Soma VITBANK + MONETALI</span>
           <span
             className={`font-mono font-bold ${
               somaDiferenteDaCompensacao ? 'text-overdue' : 'text-recovered'
@@ -448,7 +448,7 @@ const PaymentForm = ({
       {/* ═══ Datas de vencimento ═══ */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-          <label className={labelCls}>Vcto VitBank</label>
+          <label className={labelCls}>Vcto VITBANK</label>
           <input
             type="date"
             value={v.vctoVitbank}
@@ -457,7 +457,7 @@ const PaymentForm = ({
           />
         </div>
         <div>
-          <label className={labelCls}>Vcto Monetali</label>
+          <label className={labelCls}>Vcto MONETALI</label>
           <input
             type="date"
             value={v.vctoMonetali}

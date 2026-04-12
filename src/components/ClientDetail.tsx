@@ -219,7 +219,7 @@ const ClientDetail = ({ client, onBack }: Props) => {
       await createAtividade({
         clienteId: client.id,
         tipo: 'pagamento',
-        descricao: `Parcelamento inline: ${parcelamento.numParcelas}x — VitBank ${formatCurrency(parcelamento.valorParcelaVb)} + Monetali ${formatCurrency(parcelamento.valorParcelaMon)} por parcela`,
+        descricao: `Parcelamento inline: ${parcelamento.numParcelas}x — VITBANK ${formatCurrency(parcelamento.valorParcelaVb)} + MONETALI ${formatCurrency(parcelamento.valorParcelaMon)} por parcela`,
         criadoPor: form.executivo || 'Sistema',
       });
     }
@@ -248,7 +248,7 @@ const ClientDetail = ({ client, onBack }: Props) => {
 
     const ok = await updatePaymentDb(p.id, updates);
     if (ok) {
-      toast.success(`Pagamento ${side === 'vitbank' ? 'VitBank' : 'Monetali'} registrado`);
+      toast.success(`Pagamento ${side === 'vitbank' ? 'VITBANK' : 'MONETALI'} registrado`);
     }
     setMarkingPaid(null);
   };
@@ -432,25 +432,25 @@ const ClientDetail = ({ client, onBack }: Props) => {
         {payments.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
             <div className="bg-secondary/40 rounded-lg p-3 text-center">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Total VitBank</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Total VITBANK</p>
               <p className="text-sm font-bold font-mono text-partial">{formatCurrency(totalVitbank)}</p>
             </div>
             <div className="bg-secondary/40 rounded-lg p-3 text-center">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Total Monetali</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Total MONETALI</p>
               <p className="text-sm font-bold font-mono text-recovered">{formatCurrency(totalMonetali)}</p>
             </div>
             <div
               className="bg-secondary/40 rounded-lg p-3 text-center"
               title={`Juros (por dia): ${formatCurrency(round2(jurosTotals.jurosVb))}\nMulta (fixa 1x): ${formatCurrency(round2(jurosTotals.multaVb))}`}
             >
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Encargos VitBank</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Encargos VITBANK</p>
               <p className="text-sm font-bold font-mono text-overdue">{formatCurrency(totalJurosVitbank)}</p>
             </div>
             <div
               className="bg-secondary/40 rounded-lg p-3 text-center"
               title={`Juros (por dia): ${formatCurrency(round2(jurosTotals.jurosMon))}\nMulta (fixa 1x): ${formatCurrency(round2(jurosTotals.multaMon))}`}
             >
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Encargos Monetali</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Encargos MONETALI</p>
               <p className="text-sm font-bold font-mono text-overdue">{formatCurrency(totalJurosMonetali)}</p>
             </div>
             <div
@@ -580,7 +580,7 @@ const ClientDetail = ({ client, onBack }: Props) => {
                               {bd.baseVb > 0 && !bd.vbPaid && (
                                 <div className="border-l-2 border-partial/40 pl-2">
                                   <p className="text-partial font-semibold mb-0.5">
-                                    VitBank · {formatCurrency(bd.baseVb)} · {bd.diasVb}d
+                                    VITBANK · {formatCurrency(bd.baseVb)} · {bd.diasVb}d
                                   </p>
                                   <p className="text-muted-foreground">
                                     Juros: <span className="text-foreground font-mono">{formatCurrency(bd.jurosVb)}</span>
@@ -598,7 +598,7 @@ const ClientDetail = ({ client, onBack }: Props) => {
                               {bd.baseMon > 0 && !bd.monPaid && (
                                 <div className="border-l-2 border-recovered/40 pl-2">
                                   <p className="text-recovered font-semibold mb-0.5">
-                                    Monetali · {formatCurrency(bd.baseMon)} · {bd.diasMon}d
+                                    MONETALI · {formatCurrency(bd.baseMon)} · {bd.diasMon}d
                                   </p>
                                   <p className="text-muted-foreground">
                                     Juros: <span className="text-foreground font-mono">{formatCurrency(bd.jurosMon)}</span>
@@ -714,7 +714,7 @@ const ClientDetail = ({ client, onBack }: Props) => {
           const targetPayment = payments.find(p => p.id === markingPaid.paymentId);
           if (!targetPayment) return null;
           const side = markingPaid.side;
-          const sideLabel = side === 'vitbank' ? 'VitBank' : 'Monetali';
+          const sideLabel = side === 'vitbank' ? 'VITBANK' : 'MONETALI';
           const valorDevido = side === 'vitbank' ? (targetPayment.vitbank || 0) : (targetPayment.monetali || 0);
 
           return (
@@ -893,8 +893,8 @@ const ClientDetail = ({ client, onBack }: Props) => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {numField('compensacao', 'Compensação')}
           {numField('juros', 'Juros')}
-          {numField('boletoVitbank', 'Boleto VitBank')}
-          {numField('pixMonetali', 'PIX Monetali')}
+          {numField('boletoVitbank', 'VITBANK')}
+          {numField('pixMonetali', 'MONETALI')}
           {numField('diasAtraso', 'Dias em Atraso')}
           {numField('parcelas', 'Parcelas')}
           {textField('regional', 'Regional')}
@@ -1184,7 +1184,7 @@ const PaymentEditForm = ({
 
       {/* VitBank block */}
       <div className="bg-partial/5 border border-partial/25 rounded-lg p-3 space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wider text-partial">VitBank</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-partial">VITBANK</p>
         <div className="grid grid-cols-2 gap-2">
           <div>
             <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Porcentagem (%)</label>
@@ -1214,7 +1214,7 @@ const PaymentEditForm = ({
 
       {/* Monetali block */}
       <div className="bg-recovered/5 border border-recovered/25 rounded-lg p-3 space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wider text-recovered">Monetali</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-recovered">MONETALI</p>
         <div className="grid grid-cols-2 gap-2">
           <div>
             <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Porcentagem (%)</label>

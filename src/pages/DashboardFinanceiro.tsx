@@ -348,8 +348,8 @@ export default function DashboardFinanceiro() {
     const total = recebidoTotalVB + recebidoTotalMon + pendente + vencido;
     const pct = (v: number) => total > 0 ? ((v / total) * 100).toFixed(1) : "0";
     return [
-      { label: "Recebido VitBank", valor: recebidoTotalVB, cor: "#378ADD", pct: pct(recebidoTotalVB) },
-      { label: "Recebido Monetali", valor: recebidoTotalMon, cor: "#1D9E75", pct: pct(recebidoTotalMon) },
+      { label: "Recebido VITBANK", valor: recebidoTotalVB, cor: "#378ADD", pct: pct(recebidoTotalVB) },
+      { label: "Recebido MONETALI", valor: recebidoTotalMon, cor: "#1D9E75", pct: pct(recebidoTotalMon) },
       { label: "Pendente (a vencer)", valor: pendente, cor: "#F59E0B", pct: pct(pendente) },
       { label: "Vencido (não pago)", valor: vencido, cor: "#EF4444", pct: pct(vencido) },
     ];
@@ -661,8 +661,8 @@ export default function DashboardFinanceiro() {
           </div>
           <div className="flex gap-1.5 flex-wrap">
             {[
-              { key: "rvb", label: "VitBank recebido", on: showRecVB, color: "#378ADD" },
-              { key: "rmon", label: "Monetali recebido", on: showRecMon, color: "#1D9E75" },
+              { key: "rvb", label: "VITBANK recebido", on: showRecVB, color: "#378ADD" },
+              { key: "rmon", label: "MONETALI recebido", on: showRecMon, color: "#1D9E75" },
               { key: "venc", label: "Vencido", on: showVencido, color: "#EF4444" },
               { key: "novo", label: "Novos cadastros", on: showNovos, color: "#BA7517" },
             ].map((t) => (
@@ -693,10 +693,10 @@ export default function DashboardFinanceiro() {
               <YAxis tick={{ fontSize: 11, fill: "#888" }} tickLine={false} axisLine={false} tickFormatter={(v: number) => metric === "qtd" ? `${v}` : fmt(v)} />
               <RechartsTooltip content={<CustomTooltip />} />
               {showRecVB && (
-                <Line type="monotone" dataKey={metric === "qtd" ? "qtdRecebido" : "recebidoVB"} name="VitBank recebido" stroke="#378ADD" strokeWidth={2} dot={{ r: seriesData.length > 25 ? 2 : 4, fill: "#378ADD" }} activeDot={{ r: 6 }} />
+                <Line type="monotone" dataKey={metric === "qtd" ? "qtdRecebido" : "recebidoVB"} name="VITBANK recebido" stroke="#378ADD" strokeWidth={2} dot={{ r: seriesData.length > 25 ? 2 : 4, fill: "#378ADD" }} activeDot={{ r: 6 }} />
               )}
               {showRecMon && (
-                <Line type="monotone" dataKey={metric === "qtd" ? "qtdRecebido" : "recebidoMon"} name="Monetali recebido" stroke="#1D9E75" strokeWidth={2} dot={{ r: seriesData.length > 25 ? 2 : 4, fill: "#1D9E75" }} activeDot={{ r: 6 }} />
+                <Line type="monotone" dataKey={metric === "qtd" ? "qtdRecebido" : "recebidoMon"} name="MONETALI recebido" stroke="#1D9E75" strokeWidth={2} dot={{ r: seriesData.length > 25 ? 2 : 4, fill: "#1D9E75" }} activeDot={{ r: 6 }} />
               )}
               {showVencido && (
                 <Line type="monotone" dataKey={metric === "qtd" ? "qtdVencido" : "vencido"} name="Vencido" stroke="#EF4444" strokeWidth={2} strokeDasharray="5 3" dot={{ r: seriesData.length > 25 ? 2 : 3, fill: "#EF4444" }} activeDot={{ r: 5 }} />
@@ -710,14 +710,14 @@ export default function DashboardFinanceiro() {
 
         {/* Barra de composição (RECEBIDOS) */}
         <div className="mt-3 pt-3 border-t border-gray-100">
-          <div className="text-xs font-medium text-gray-700 mb-1.5">Composição recebido — VitBank × Monetali</div>
+          <div className="text-xs font-medium text-gray-700 mb-1.5">Composição recebido — VITBANK × MONETALI</div>
           <div className="flex h-1.5 rounded-full overflow-hidden mb-1.5">
             <div style={{ width: pctRecVB + "%", background: "#378ADD" }}></div>
             <div style={{ width: (100 - pctRecVB) + "%", background: "#1D9E75" }}></div>
           </div>
           <div className="flex justify-between text-xs text-gray-400">
-            <span><span className="inline-block w-2 h-2 rounded-sm bg-blue-400 mr-1"></span>VitBank: {fmt(recebidoTotalVB)} ({pctRecVB}%)</span>
-            <span><span className="inline-block w-2 h-2 rounded-sm bg-green-500 mr-1"></span>Monetali: {fmt(recebidoTotalMon)} ({100 - pctRecVB}%)</span>
+            <span><span className="inline-block w-2 h-2 rounded-sm bg-blue-400 mr-1"></span>VITBANK: {fmt(recebidoTotalVB)} ({pctRecVB}%)</span>
+            <span><span className="inline-block w-2 h-2 rounded-sm bg-green-500 mr-1"></span>MONETALI: {fmt(recebidoTotalMon)} ({100 - pctRecVB}%)</span>
           </div>
         </div>
       </div>
@@ -729,8 +729,8 @@ export default function DashboardFinanceiro() {
             <div>
               <div className="text-sm font-medium text-gray-800">Pagamentos — {drill.label}</div>
               <div className="flex gap-4 mt-1 text-xs">
-                <span className="text-blue-600 font-medium">VitBank: {fmt(drill.totalVB)}</span>
-                <span className="text-green-600 font-medium">Monetali: {fmt(drill.totalMon)}</span>
+                <span className="text-blue-600 font-medium">VITBANK: {fmt(drill.totalVB)}</span>
+                <span className="text-green-600 font-medium">MONETALI: {fmt(drill.totalMon)}</span>
                 <span className="text-amber-600 font-medium">Total: {fmt(drill.totalComp)}</span>
               </div>
             </div>
@@ -748,8 +748,8 @@ export default function DashboardFinanceiro() {
                 <tr className="border-b border-gray-100">
                   <th className="text-left text-gray-500 font-medium py-2 px-2" style={{ width: "30%" }}>Cliente</th>
                   <th className="text-center text-gray-500 font-medium py-2 px-2" style={{ width: "14%" }}>Tipo</th>
-                  <th className="text-right text-gray-500 font-medium py-2 px-2" style={{ width: "14%" }}>VitBank</th>
-                  <th className="text-right text-gray-500 font-medium py-2 px-2" style={{ width: "14%" }}>Monetali</th>
+                  <th className="text-right text-gray-500 font-medium py-2 px-2" style={{ width: "14%" }}>VITBANK</th>
+                  <th className="text-right text-gray-500 font-medium py-2 px-2" style={{ width: "14%" }}>MONETALI</th>
                   <th className="text-right text-gray-500 font-medium py-2 px-2" style={{ width: "14%" }}>Total</th>
                   <th className="text-center text-gray-500 font-medium py-2 px-2" style={{ width: "14%" }}>Status</th>
                 </tr>

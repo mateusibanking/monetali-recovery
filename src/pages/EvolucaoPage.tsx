@@ -89,11 +89,11 @@ const EvolucaoPage = () => {
           </p>
           <div className="mt-3 pt-3 border-t border-border/30 space-y-1">
             <div className="flex justify-between text-xs">
-              <span className="text-partial font-medium">VitBank</span>
+              <span className="text-partial font-medium">VITBANK</span>
               <span className="font-mono">{formatCurrency(totais.recebido_vitbank)}</span>
             </div>
             <div className="flex justify-between text-xs">
-              <span className="text-recovered font-medium">Monetali</span>
+              <span className="text-recovered font-medium">MONETALI</span>
               <span className="font-mono">{formatCurrency(totais.recebido_monetali)}</span>
             </div>
           </div>
@@ -111,11 +111,11 @@ const EvolucaoPage = () => {
           </p>
           <div className="mt-3 pt-3 border-t border-border/30 space-y-1">
             <div className="flex justify-between text-xs">
-              <span className="text-partial font-medium">VitBank</span>
+              <span className="text-partial font-medium">VITBANK</span>
               <span className="font-mono">{formatCurrency(totais.pendente_vitbank)}</span>
             </div>
             <div className="flex justify-between text-xs">
-              <span className="text-recovered font-medium">Monetali</span>
+              <span className="text-recovered font-medium">MONETALI</span>
               <span className="font-mono">{formatCurrency(totais.pendente_monetali)}</span>
             </div>
           </div>
@@ -133,11 +133,11 @@ const EvolucaoPage = () => {
           </p>
           <div className="mt-3 pt-3 border-t border-border/30 space-y-1">
             <div className="flex justify-between text-xs">
-              <span className="text-partial font-medium">VitBank</span>
+              <span className="text-partial font-medium">VITBANK</span>
               <span className="font-mono">{formatCurrency(totais.vencido_vitbank)}</span>
             </div>
             <div className="flex justify-between text-xs">
-              <span className="text-recovered font-medium">Monetali</span>
+              <span className="text-recovered font-medium">MONETALI</span>
               <span className="font-mono">{formatCurrency(totais.vencido_monetali)}</span>
             </div>
           </div>
@@ -196,8 +196,8 @@ const EvolucaoPage = () => {
                 <th className="px-3 py-2 font-semibold text-negotiation uppercase tracking-wider text-right">Pendente</th>
                 <th className="px-3 py-2 font-semibold text-overdue uppercase tracking-wider text-right">Vencido</th>
                 <th className="px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-right">Total</th>
-                <th className="px-3 py-2 font-semibold text-partial uppercase tracking-wider text-right hidden lg:table-cell">VitBank</th>
-                <th className="px-3 py-2 font-semibold text-recovered uppercase tracking-wider text-right hidden lg:table-cell">Monetali</th>
+                <th className="px-3 py-2 font-semibold text-partial uppercase tracking-wider text-right hidden lg:table-cell">VITBANK</th>
+                <th className="px-3 py-2 font-semibold text-recovered uppercase tracking-wider text-right hidden lg:table-cell">MONETALI</th>
               </tr>
             </thead>
             <tbody>
