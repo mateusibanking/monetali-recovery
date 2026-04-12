@@ -26,9 +26,10 @@ const AGING_RANGES = [
   { label: '90+', min: 91, max: Infinity },
 ];
 
-type ColumnKey = 'cliente' | 'regional' | 'executivo' | 'compensacao' | 'boletoVB' | 'pixMon' | 'dias' | 'situacao' | 'flags';
+type ColumnKey = 'cliente' | 'regional' | 'executivo' | 'compensacao' | 'inadimplente' | 'recuperado' | 'boletoVB' | 'pixMon' | 'dias' | 'situacao' | 'flags';
 const columnLabels: Record<ColumnKey, string> = {
   cliente: 'Cliente', regional: 'Regional', executivo: 'Executivo', compensacao: 'Compensação',
+  inadimplente: 'Inadimplente', recuperado: 'Recuperado',
   boletoVB: 'VitBank', pixMon: 'Monetali', dias: 'Dias', situacao: 'Situação', flags: 'Flags',
 };
 
@@ -92,7 +93,8 @@ const ClientTable = ({ onSelectClient }: Props) => {
     });
     const matchesFlags = flagFilters.size === 0 || [...flagFilters].every(f => c.flags.includes(f));
     return matchesSearch && matchesStatus && matchesRegional && matchesExecutivo && matchesAging && matchesFlags;
-  }), [allClients, debouncedSearch, statusFilters, regionalFilters, executivoFilters, agingFilters, flagFilters]);
+  }).sort((a, b) => (b.valorInadimplente || 0) - (a.valorInadimplente || 0)),
+  [allClients, debouncedSearch, statusFilters, regionalFilters, executivoFilters, agingFilters, flagFilters]);
 
   // Paginated results
   const paginatedClients = useMemo(() => {
@@ -280,6 +282,8 @@ const ClientTable = ({ onSelectClient }: Props) => {
                 {show('regional') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider hidden lg:table-cell">Regional</th>}
                 {show('executivo') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider hidden md:table-cell">Executivo</th>}
                 {show('compensacao') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider text-right">Compensação</th>}
+                {show('inadimplente') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider text-right">Inadimplente</th>}
+                {show('recuperado') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider text-right">Recuperado</th>}
                 {show('boletoVB') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider hidden md:table-cell text-right">VitBank</th>}
                 {show('pixMon') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider hidden md:table-cell text-right">Monetali</th>}
                 {show('dias') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider hidden sm:table-cell text-right">Dias</th>}
@@ -309,6 +313,28 @@ const ClientTable = ({ onSelectClient }: Props) => {
                     {show('compensacao') && (
                       <td className="px-4 py-3 font-mono font-semibold text-right" onClick={() => onSelectClient(client)}>
                         {formatCurrency(client.compensacao)}
+                      </td>
+                    )}
+                    {show('inadimplente') && (
+                      <td className="px-4 py-3 text-right" onClick={() => onSelectClient(client)}>
+                        {(client.valorInadimplente || 0) > 0 ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold bg-red-100 text-red-700 border border-red-200 font-mono">
+                            {formatCurrency(client.valorInadimplente || 0)}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground font-mono">—</span>
+                        )}
+                      </td>
+                    )}
+                    {show('recuperado') && (
+                      <td className="px-4 py-3 text-right" onClick={() => onSelectClient(client)}>
+                        {(client.valorRecuperado || 0) > 0 ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold bg-green-100 text-green-700 border border-green-200 font-mono">
+                            {formatCurrency(client.valorRecuperado || 0)}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground font-mono">—</span>
+                        )}
                       </td>
                     )}
                     {show('boletoVB') && (
