@@ -27,26 +27,20 @@ const COLORS_STATUS: Record<Situacao, string> = {
 
 const AGING_COLORS = ['#316AB4', '#D4A843', '#ef4444', '#0D2C60'];
 
+const tooltipStyle = {
+  contentStyle: { background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12, color: '#333' },
+  labelStyle: { color: '#6b7280' },
+};
+
 const DashboardPage = () => {
   const [selectedMonth, setSelectedMonth] = useState(DEFAULT_MONTH);
   const [activeStatus, setActiveStatus] = useState<Situacao | null>(null);
   const { data: dashboard, loading, error } = useDashboard(selectedMonth);
 
-  if (loading) return <LoadingSkeleton />;
-
-  if (error) {
-    return (
-      <div className="glass-card p-12 flex flex-col items-center justify-center text-center">
-        <AlertCircle className="h-10 w-10 text-destructive mb-4" />
-        <h3 className="text-lg font-semibold mb-2">Erro ao carregar dashboard</h3>
-        <p className="text-sm text-muted-foreground">{error}</p>
-      </div>
-    );
-  }
-
+  // Destructure here (safe — dashboard always has initial empty state)
   const { clients, porStatus, porRegional, porExecutivo, aging, totalInadimplente, totalRecuperado, pagamentosEmAberto, pagamentosQuitados } = dashboard;
 
-  // Filter data by active status (from StatusCards click)
+  // ALL hooks MUST be called before any early return (Rules of Hooks)
   const filteredRegional = useMemo(() => {
     if (!activeStatus) return porRegional;
     return porRegional
@@ -83,16 +77,27 @@ const DashboardPage = () => {
       .filter(Boolean) as typeof porExecutivo;
   }, [porExecutivo, activeStatus]);
 
-  const statusData = porStatus.map(s => ({
-    name: situacaoLabels[s.situacao] || s.name,
-    value: s.value,
-    color: COLORS_STATUS[s.situacao] || '#6b7280',
-  })).filter(d => d.value > 0);
+  const statusData = useMemo(() =>
+    porStatus.map(s => ({
+      name: situacaoLabels[s.situacao] || s.name,
+      value: s.value,
+      color: COLORS_STATUS[s.situacao] || '#6b7280',
+    })).filter(d => d.value > 0),
+    [porStatus]
+  );
 
-  const tooltipStyle = {
-    contentStyle: { background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12, color: '#333' },
-    labelStyle: { color: '#6b7280' },
-  };
+  // Early returns AFTER all hooks
+  if (loading) return <LoadingSkeleton />;
+
+  if (error) {
+    return (
+      <div className="glass-card p-12 flex flex-col items-center justify-center text-center">
+        <AlertCircle className="h-10 w-10 text-destructive mb-4" />
+        <h3 className="text-lg font-semibold mb-2">Erro ao carregar dashboard</h3>
+        <p className="text-sm text-muted-foreground">{error}</p>
+      </div>
+    );
+  }
 
   const hasData = clients.length > 0;
 

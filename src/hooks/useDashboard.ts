@@ -77,9 +77,8 @@ export function useDashboard(mesReferencia?: string): UseDashboardReturn {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const isFiltered = mesReferencia && mesReferencia !== 'todos';
-
   const fetchDashboard = useCallback(async () => {
+    const isFiltered = mesReferencia && mesReferencia !== 'todos';
     try {
       setLoading(true);
       setError(null);
@@ -282,7 +281,7 @@ export function useDashboard(mesReferencia?: string): UseDashboardReturn {
     } finally {
       setLoading(false);
     }
-  }, [mesReferencia, isFiltered]);
+  }, [mesReferencia]);
 
   useEffect(() => {
     fetchDashboard();
