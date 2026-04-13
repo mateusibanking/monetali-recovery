@@ -313,9 +313,9 @@ const ClientTable = ({ onSelectClient }: Props) => {
 
       {/* Table */}
       <div className="glass-card overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[75vh]">
           <table className="w-full text-sm">
-            <thead>
+            <thead className="sticky top-0 z-10 bg-card shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
               <tr className="border-b border-border/50 text-left">
                 {show('cliente') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('cliente')}>Cliente {sortField === 'cliente' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>}
                 {show('regional') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider hidden lg:table-cell cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('regional')}>Regional {sortField === 'regional' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>}
@@ -335,7 +335,7 @@ const ClientTable = ({ onSelectClient }: Props) => {
               {paginatedClients.map(client => {
                 const hasActivity = clientIdsWithActivity.has(client.id);
                 return (
-                  <tr key={client.id} className="border-b border-border/30 hover:bg-accent/50 cursor-pointer transition-colors">
+                  <tr key={client.id} className="border-b border-border/20 hover:bg-muted/40 cursor-pointer transition-colors duration-150">
                     {show('cliente') && (
                       <td className="px-4 py-3" onClick={() => onSelectClient(client)}>
                         <div className="flex items-center gap-1.5">
