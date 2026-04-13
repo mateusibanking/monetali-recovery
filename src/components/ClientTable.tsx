@@ -16,7 +16,7 @@ interface Props {
   onSelectClient: (client: Client) => void;
 }
 
-const ITEMS_PER_PAGE = 50;
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 500];
 
 const allSituacoes: Situacao[] = Object.keys(situacaoLabels) as Situacao[];
 const AGING_RANGES = [
@@ -45,6 +45,7 @@ const ClientTable = ({ onSelectClient }: Props) => {
   const [flagFilters, setFlagFilters] = useState<Set<string>>(new Set());
 
   const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(50);
 
   const [sortField, setSortField] = useState<ColumnKey>('compensacao');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
@@ -127,8 +128,8 @@ const ClientTable = ({ onSelectClient }: Props) => {
 
   // Paginated results
   const paginatedClients = useMemo(() => {
-    const start = (currentPage - 1) * ITEMS_PER_PAGE;
-    return filtered.slice(start, start + ITEMS_PER_PAGE);
+    const start = (currentPage - 1) * itemsPerPage;
+    return filtered.slice(start, start + itemsPerPage);
   }, [filtered, currentPage]);
 
   const clearFilters = () => {
@@ -443,10 +444,23 @@ const ClientTable = ({ onSelectClient }: Props) => {
           )}
         </div>
         {filtered.length > 0 && (
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-sm text-gray-500">Exibir:</span>
+        <select
+          value={itemsPerPage}
+          onChange={e => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+          className="text-sm border border-gray-200 rounded px-2 py-1 bg-white"
+        >
+          {PAGE_SIZE_OPTIONS.map(n => (
+            <option key={n} value={n}>{n} por página</option>
+          ))}
+        </select>
+        <span className="text-sm text-gray-400">({filtered.length} total)</span>
+      </div>
           <Pagination
             currentPage={currentPage}
             totalItems={filtered.length}
-            itemsPerPage={ITEMS_PER_PAGE}
+            itemsPerPage={itemsPerPage}
             onPageChange={setCurrentPage}
           />
         )}
