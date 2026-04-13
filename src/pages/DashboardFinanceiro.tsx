@@ -246,8 +246,9 @@ export default function DashboardFinanceiro() {
         }
       }
 
-      // Novos cadastros no mês selecionado
-      if (p.created_at?.slice(0, 7) === mesAtual) {
+      // Novos cadastros no mês selecionado (por data de vencimento, não created_at)
+      const dataEntrada = p.data_vencimento || p.vcto_vitbank || p.vcto_monetali;
+      if (dataEntrada?.slice(0, 7) === mesAtual) {
         novosMes++;
       }
     }
@@ -293,9 +294,10 @@ export default function DashboardFinanceiro() {
         vencByDay[d].valor += n(p.monetali);
         vencByDay[d].count += 1;
       }
-      // Novos: created_at date
-      if (p.created_at) {
-        const d = p.created_at.slice(0, 10);
+      // Novos: por data de vencimento (não created_at)
+      const dataEntrada = p.data_vencimento || p.vcto_vitbank || p.vcto_monetali;
+      if (dataEntrada) {
+        const d = dataEntrada.slice(0, 10);
         if (!novosByDay[d]) novosByDay[d] = { valor: 0, count: 0 };
         novosByDay[d].valor += n(p.valor_compensacao) || n(p.valor);
         novosByDay[d].count += 1;
@@ -400,9 +402,10 @@ export default function DashboardFinanceiro() {
           meses[m].vencido += n(p.vitbank) + n(p.monetali);
         }
       }
-      // Novos
-      if (p.created_at) {
-        const m = p.created_at.slice(0, 7);
+      // Novos (por data de vencimento, não created_at)
+      const dataEntradaM = p.data_vencimento || p.vcto_vitbank || p.vcto_monetali;
+      if (dataEntradaM) {
+        const m = dataEntradaM.slice(0, 7);
         if (!meses[m]) meses[m] = { mes: m, mesLabel: "", recebidoVB: 0, recebidoMon: 0, totalRecebido: 0, vencido: 0, novosCadastros: 0 };
         meses[m].novosCadastros += 1;
       }
@@ -473,8 +476,9 @@ export default function DashboardFinanceiro() {
         });
       }
 
-      // Novo cadastro naquele dia
-      if (p.created_at?.slice(0, 10) === diaISO) {
+      // Novo cadastro naquele dia (por data de vencimento)
+      const dataEntradaDrill = p.data_vencimento || p.vcto_vitbank || p.vcto_monetali;
+      if (dataEntradaDrill?.slice(0, 10) === diaISO) {
         const vb = n(p.vitbank);
         const mon = n(p.monetali);
         // Don't double-count if already added as Recebido or Vencido

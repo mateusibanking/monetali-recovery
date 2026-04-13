@@ -46,6 +46,9 @@ const ClientTable = ({ onSelectClient }: Props) => {
 
   const [currentPage, setCurrentPage] = useState(1);
 
+  const [sortField, setSortField] = useState<ColumnKey>('compensacao');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
   const [visibleColumns, setVisibleColumns] = useState<Set<ColumnKey>>(new Set(Object.keys(columnLabels) as ColumnKey[]));
   const [columnsOpen, setColumnsOpen] = useState(false);
   const columnsRef = useRef<HTMLDivElement>(null);
@@ -81,20 +84,46 @@ const ClientTable = ({ onSelectClient }: Props) => {
 
   const hasAnyFilter = statusFilters.size > 0 || regionalFilters.size > 0 || executivoFilters.size > 0 || agingFilters.size > 0 || flagFilters.size > 0;
 
-  const filtered = useMemo(() => allClients.filter(c => {
-    const matchesSearch = !debouncedSearch || c.nome.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-      c.cnpj.includes(debouncedSearch) || c.executivo.toLowerCase().includes(debouncedSearch.toLowerCase());
-    const matchesStatus = statusFilters.size === 0 || statusFilters.has(c.situacao);
-    const matchesRegional = regionalFilters.size === 0 || regionalFilters.has(c.regional);
-    const matchesExecutivo = executivoFilters.size === 0 || executivoFilters.has(c.executivo);
-    const matchesAging = agingFilters.size === 0 || [...agingFilters].some(i => {
-      const r = AGING_RANGES[i];
-      return c.diasAtraso >= r.min && c.diasAtraso <= r.max;
+  const filtered = useMemo(() => {
+    const result = allClients.filter(c => {
+      const matchesSearch = !debouncedSearch || c.nome.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        c.cnpj.includes(debouncedSearch) || c.executivo.toLowerCase().includes(debouncedSearch.toLowerCase());
+      const matchesStatus = statusFilters.size === 0 || statusFilters.has(c.situacao);
+      const matchesRegional = regionalFilters.size === 0 || regionalFilters.has(c.regional);
+      const matchesExecutivo = executivoFilters.size === 0 || executivoFilters.has(c.executivo);
+      const matchesAging = agingFilters.size === 0 || [...agingFilters].some(i => {
+        const r = AGING_RANGES[i];
+        return c.diasAtraso >= r.min && c.diasAtraso <= r.max;
+      });
+      const matchesFlags = flagFilters.size === 0 || [...flagFilters].every(f => c.flags.includes(f));
+      return matchesSearch && matchesStatus && matchesRegional && matchesExecutivo && matchesAging && matchesFlags;
     });
-    const matchesFlags = flagFilters.size === 0 || [...flagFilters].every(f => c.flags.includes(f));
-    return matchesSearch && matchesStatus && matchesRegional && matchesExecutivo && matchesAging && matchesFlags;
-  }).sort((a, b) => (b.valorInadimplente || 0) - (a.valorInadimplente || 0)),
-  [allClients, debouncedSearch, statusFilters, regionalFilters, executivoFilters, agingFilters, flagFilters]);
+
+    // Sort
+    const dir = sortDir === 'asc' ? 1 : -1;
+    result.sort((a, b) => {
+      let va: string | number = 0;
+      let vb: string | number = 0;
+      switch (sortField) {
+        case 'cliente': va = a.nome.toLowerCase(); vb = b.nome.toLowerCase(); break;
+        case 'regional': va = a.regional.toLowerCase(); vb = b.regional.toLowerCase(); break;
+        case 'executivo': va = a.executivo.toLowerCase(); vb = b.executivo.toLowerCase(); break;
+        case 'compensacao': va = a.compensacao; vb = b.compensacao; break;
+        case 'inadimplente': va = a.valorInadimplente || 0; vb = b.valorInadimplente || 0; break;
+        case 'recuperado': va = a.valorRecuperado || 0; vb = b.valorRecuperado || 0; break;
+        case 'boletoVB': va = a.boletoVitbank; vb = b.boletoVitbank; break;
+        case 'pixMon': va = a.pixMonetali; vb = b.pixMonetali; break;
+        case 'dias': va = a.diasAtraso; vb = b.diasAtraso; break;
+        case 'situacao': va = a.situacao; vb = b.situacao; break;
+        default: va = a.compensacao; vb = b.compensacao;
+      }
+      if (va < vb) return -1 * dir;
+      if (va > vb) return 1 * dir;
+      return 0;
+    });
+
+    return result;
+  }, [allClients, debouncedSearch, statusFilters, regionalFilters, executivoFilters, agingFilters, flagFilters, sortField, sortDir]);
 
   // Paginated results
   const paginatedClients = useMemo(() => {
@@ -121,6 +150,16 @@ const ClientTable = ({ onSelectClient }: Props) => {
     const next = new Set(expandedSections);
     if (next.has(s)) next.delete(s); else next.add(s);
     setExpandedSections(next);
+  };
+
+  const handleSort = (col: ColumnKey) => {
+    if (col === 'flags') return; // flags not sortable
+    if (sortField === col) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(col);
+      setSortDir(col === 'cliente' || col === 'regional' || col === 'executivo' || col === 'situacao' ? 'asc' : 'desc');
+    }
   };
 
   const toggleColumn = (col: ColumnKey) => {
@@ -278,16 +317,16 @@ const ClientTable = ({ onSelectClient }: Props) => {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border/50 text-left">
-                {show('cliente') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Cliente</th>}
-                {show('regional') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider hidden lg:table-cell">Regional</th>}
-                {show('executivo') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider hidden md:table-cell">Executivo</th>}
-                {show('compensacao') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider text-right">Compensação</th>}
-                {show('inadimplente') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider text-right">Inadimplente</th>}
-                {show('recuperado') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider text-right">Recuperado</th>}
-                {show('boletoVB') && <th className="px-4 py-3 font-semibold text-blue-600 text-xs uppercase tracking-wider hidden md:table-cell text-right">VITBANK</th>}
-                {show('pixMon') && <th className="px-4 py-3 font-semibold text-emerald-600 text-xs uppercase tracking-wider hidden md:table-cell text-right">MONETALI</th>}
-                {show('dias') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider hidden sm:table-cell text-right">Dias</th>}
-                {show('situacao') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider">Situação</th>}
+                {show('cliente') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('cliente')}>Cliente {sortField === 'cliente' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>}
+                {show('regional') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider hidden lg:table-cell cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('regional')}>Regional {sortField === 'regional' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>}
+                {show('executivo') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider hidden md:table-cell cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('executivo')}>Executivo {sortField === 'executivo' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>}
+                {show('compensacao') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider text-right cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('compensacao')}>Compensação {sortField === 'compensacao' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>}
+                {show('inadimplente') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider text-right cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('inadimplente')}>Inadimplente {sortField === 'inadimplente' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>}
+                {show('recuperado') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider text-right cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('recuperado')}>Recuperado {sortField === 'recuperado' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>}
+                {show('boletoVB') && <th className="px-4 py-3 font-semibold text-blue-600 text-xs uppercase tracking-wider hidden md:table-cell text-right cursor-pointer select-none hover:text-blue-800 transition-colors" onClick={() => handleSort('boletoVB')}>VITBANK {sortField === 'boletoVB' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>}
+                {show('pixMon') && <th className="px-4 py-3 font-semibold text-emerald-600 text-xs uppercase tracking-wider hidden md:table-cell text-right cursor-pointer select-none hover:text-emerald-800 transition-colors" onClick={() => handleSort('pixMon')}>MONETALI {sortField === 'pixMon' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>}
+                {show('dias') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider hidden sm:table-cell text-right cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('dias')}>Dias {sortField === 'dias' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>}
+                {show('situacao') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider cursor-pointer select-none hover:text-foreground transition-colors" onClick={() => handleSort('situacao')}>Situação {sortField === 'situacao' ? (sortDir === 'asc' ? '▲' : '▼') : ''}</th>}
                 {show('flags') && <th className="px-4 py-3 font-semibold text-muted-foreground text-xs uppercase tracking-wider hidden xl:table-cell">Flags</th>}
                 <th className="px-4 py-3"></th>
               </tr>
