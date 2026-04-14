@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   ArrowLeft, Save, Calendar, Mail, Phone, FileText, MessageSquare,
-  CreditCard, Tag, Clock, Plus, X, Edit2, AlertCircle, CheckCircle2, CircleDot, AlertTriangle,
+  CreditCard, Tag, Clock, Plus, X, Edit2, AlertCircle, CheckCircle2, CircleDot, AlertTriangle, Calculator,
   Send, Link as LinkIcon, Upload, Trash2,
 } from 'lucide-react';
 import ClienteEncargos from './features/ClienteEncargos';
@@ -340,8 +340,75 @@ const ClientDetail = ({ client, onBack }: Props) => {
         </div>
       </div>
 
-      {/* ENCARGOS POR EMPRESA (Vitbank / Monetali) */}
+      {/* ENCARGOS POR EMPRESA (Vitbank / Monetali) — NOVO componente unificado */}
       <ClienteEncargos clienteId={client.id} />
+
+      {/* JUROS AUTOMÁTICOS — calculado por pagamento (via premissas) */}
+      {totalJuros > 0 && (
+        <div className="glass-card p-5 border-l-4 border-l-accent">
+          <div className="flex items-center gap-2 mb-3">
+            <Calculator className="h-5 w-5 text-accent" />
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              Cálculo Automático de Encargos
+            </h3>
+            <span className="ml-auto text-[10px] text-muted-foreground">
+              Juros {dbPremissas.taxaJurosDia}%/dia · Multa {dbPremissas.multaAtraso}% (fixa)
+            </span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+            <div>
+              <p className="text-xs text-muted-foreground uppercase">Valor Original</p>
+              <p className="text-lg font-bold font-mono">{formatCurrency(form.compensacao)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground uppercase">Juros (por dia)</p>
+              <p className="text-lg font-bold font-mono text-negotiation">{formatCurrency(totalJurosOnly)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground uppercase">Multa (1x)</p>
+              <p className="text-lg font-bold font-mono text-partial">{formatCurrency(totalMultaOnly)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground uppercase">Total Encargos</p>
+              <p className="text-lg font-bold font-mono text-accent">{formatCurrency(totalJuros)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground uppercase">Valor Atualizado</p>
+              <p className="text-lg font-bold font-mono text-overdue">{formatCurrency(valorAtualizado)}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* RESUMO INADIMPLÊNCIA */}
+      <div className="glass-card p-5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="p-4 rounded-lg bg-red-50 border border-red-100">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-red-600 mb-1">Inadimplente</p>
+            <p className="text-lg font-bold font-mono text-red-700">
+              {formatCurrency(client.valorInadimplente || 0)}
+            </p>
+          </div>
+          <div className="p-4 rounded-lg bg-green-50 border border-green-100">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-green-600 mb-1">Recuperado</p>
+            <p className="text-lg font-bold font-mono text-green-700">
+              {formatCurrency(client.valorRecuperado || 0)}
+            </p>
+          </div>
+          <div className="p-4 rounded-lg bg-blue-50 border border-blue-100">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-blue-600 mb-1">Compensação Total</p>
+            <p className="text-lg font-bold font-mono text-blue-700">
+              {formatCurrency(form.compensacao)}
+            </p>
+          </div>
+          <div className="p-4 rounded-lg bg-amber-50 border border-amber-100">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-amber-600 mb-1">Juros Total</p>
+            <p className="text-lg font-bold font-mono text-amber-700">
+              {formatCurrency(form.juros)}
+            </p>
+          </div>
+        </div>
+      </div>
 
       {/* PAGAMENTOS */}
       <div className="glass-card p-6">
@@ -364,6 +431,45 @@ const ClientDetail = ({ client, onBack }: Props) => {
             </span>
           </div>
         </div>
+
+        {/* Summary totals */}
+        {payments.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
+            <div className="bg-secondary/40 rounded-lg p-3 text-center">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Total VITBANK</p>
+              <p className="text-sm font-bold font-mono text-partial">{formatCurrency(totalVitbank)}</p>
+            </div>
+            <div className="bg-secondary/40 rounded-lg p-3 text-center">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Total MONETALI</p>
+              <p className="text-sm font-bold font-mono text-recovered">{formatCurrency(totalMonetali)}</p>
+            </div>
+            <div
+              className="bg-secondary/40 rounded-lg p-3 text-center"
+              title={`Juros (por dia): ${formatCurrency(round2(jurosTotals.jurosVb))}\nMulta (fixa 1x): ${formatCurrency(round2(jurosTotals.multaVb))}`}
+            >
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Encargos VITBANK</p>
+              <p className="text-sm font-bold font-mono text-overdue">{formatCurrency(totalJurosVitbank)}</p>
+            </div>
+            <div
+              className="bg-secondary/40 rounded-lg p-3 text-center"
+              title={`Juros (por dia): ${formatCurrency(round2(jurosTotals.jurosMon))}\nMulta (fixa 1x): ${formatCurrency(round2(jurosTotals.multaMon))}`}
+            >
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Encargos MONETALI</p>
+              <p className="text-sm font-bold font-mono text-overdue">{formatCurrency(totalJurosMonetali)}</p>
+            </div>
+            <div
+              className="bg-secondary/40 rounded-lg p-3 text-center"
+              title={`Juros totais (por dia): ${formatCurrency(totalJurosOnly)}\nMulta total (fixa 1x): ${formatCurrency(totalMultaOnly)}`}
+            >
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Total Encargos</p>
+              <p className="text-sm font-bold font-mono text-negotiation">{formatCurrency(totalJuros)}</p>
+            </div>
+            <div className="bg-secondary/40 rounded-lg p-3 text-center">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Total Geral</p>
+              <p className="text-sm font-bold font-mono text-overdue">{formatCurrency(totalVitbank + totalMonetali + totalJuros)}</p>
+            </div>
+          </div>
+        )}
 
         {loadingPay ? (
           <div className="py-8 text-center text-muted-foreground text-sm">Carregando pagamentos...</div>
