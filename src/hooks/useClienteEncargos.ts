@@ -107,8 +107,9 @@ export function useClienteEncargos(clienteId: string): ClienteEncargosData {
     const compensacaoTotal = totalVb + totalMn;
     const inadimplente = principalVb + principalMn;
     const recuperado = recuperadoVb + recuperadoMn;
-    const percentualRecuperado =
-      inadimplente > 0 ? round2((recuperado / inadimplente) * 100) : 0;
+    // % recuperado = recuperado / (recuperado + inadimplente)
+    const totalBase = recuperado + inadimplente;
+    const percentualRecuperado = totalBase > 0 ? round2((recuperado / totalBase) * 100) : 0;
 
     return {
       vitbank: {
