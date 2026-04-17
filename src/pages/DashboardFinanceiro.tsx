@@ -55,13 +55,18 @@ interface DayPoint {
   qtdNovos: number;
 }
 
+type DrillTipo = "Recebido" | "Vencido" | "Novo";
+
 interface DrillRow {
   nome: string;
-  tipo: "Recebido" | "Vencido" | "Novo";
+  tipo: DrillTipo;
   vitbank: number;
   monetali: number;
   total: number;
-  status: string;
+  vctoVB: string | null;
+  vctoMon: string | null;
+  pgtoVB: string | null;
+  pgtoMon: string | null;
 }
 
 interface DrillState {
@@ -89,19 +94,6 @@ interface MonthRow {
 
 const MONTHS_PT = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 const MONTHS_FULL = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
-
-const STATUS_LABELS: Record<string, string> = {
-  nao_iniciado: "NÃO INICIADO",
-  em_andamento: "EM ANDAMENTO",
-  pendente: "PENDENTE",
-  contatado: "CONTATADO",
-  em_negociacao: "EM NEGOCIAÇÃO",
-  acordo_fechado: "ACORDO FECHADO",
-  pago: "PAGO",
-  juridico: "JURÍDICO",
-  parcelado: "PARCELADO",
-  distrato: "DISTRATO",
-};
 
 // ═══════════════════════════════════════════════════════════════════
 // Helpers
@@ -137,6 +129,49 @@ function n(v: number | null | undefined): number {
   return Number(v) || 0;
 }
 
+/** Compute the oldest due date from VB/Mon dates */
+function earliestVcto(vctoVB: string | null, vctoMon: string | null): string | null {
+  const a = vctoVB?.slice(0, 10) || null;
+  const b = vctoMon?.slice(0, 10) || null;
+  if (a && b) return a < b ? a : b;
+  return a || b;
+}
+
+/** Diff in days between two ISO date strings (a - b) */
+function diffDays(a: string, b: string): number {
+  return Math.round((new Date(a + "T00:00:00").getTime() - new Date(b + "T00:00:00").getTime()) / 86400000);
+}
+
+interface DiasVencidoInfo {
+  label: string;
+  colorClass: string;
+}
+
+function computeDiasVencido(row: DrillRow, hojeISO: string): DiasVencidoInfo {
+  const vcto = earliestVcto(row.vctoVB, row.vctoMon);
+  if (!vcto) return { label: "—", colorClass: "text-gray-400" };
+
+  if (row.tipo === "Recebido") {
+    // Pagou — check if late
+    const pgto = row.pgtoVB?.slice(0, 10) || row.pgtoMon?.slice(0, 10);
+    if (!pgto) return { label: "—", colorClass: "text-gray-400" };
+    const atraso = diffDays(pgto, vcto);
+    if (atraso > 0) return { label: `Pago com ${atraso}d de atraso`, colorClass: "text-amber-600" };
+    return { label: "Em dia \u2713", colorClass: "text-green-600" };
+  }
+
+  if (row.tipo === "Vencido") {
+    const dias = diffDays(hojeISO, vcto);
+    return { label: `${dias} dias`, colorClass: dias > 90 ? "text-red-700 font-bold" : "text-red-600" };
+  }
+
+  // Novo
+  const dias = diffDays(hojeISO, vcto);
+  if (dias > 0) return { label: `${dias} dias`, colorClass: "text-red-600" };
+  if (dias === 0) return { label: "Vence hoje", colorClass: "text-amber-600" };
+  return { label: `Vence em ${Math.abs(dias)} dias`, colorClass: "text-gray-500" };
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // Component
 // ═══════════════════════════════════════════════════════════════════
@@ -166,6 +201,7 @@ export default function DashboardFinanceiro() {
 
   const [drill, setDrill] = useState<DrillState | null>(null);
   const [drillSearch, setDrillSearch] = useState("");
+  const [drillFilter, setDrillFilter] = useState<DrillTipo | "Todos">("Todos");
   const [ctxText, setCtxText] = useState("Últimos 7 dias");
 
   // ─── Fetch ────────────────────────────────────────────────────
@@ -494,6 +530,13 @@ export default function DashboardFinanceiro() {
     let totalVB = 0, totalMon = 0, totalComp = 0;
 
     for (const p of pagamentos) {
+      const dateFields = {
+        vctoVB: p.vcto_vitbank,
+        vctoMon: p.vcto_monetali,
+        pgtoVB: p.pgto_vitbank,
+        pgtoMon: p.pgto_monetali,
+      };
+
       // Recebido naquele dia
       const recVB = p.pgto_vitbank?.slice(0, 10) === diaISO;
       const recMon = p.pgto_monetali?.slice(0, 10) === diaISO;
@@ -501,14 +544,7 @@ export default function DashboardFinanceiro() {
         const vb = recVB ? (n(p.valor_pago_vitbank) || n(p.vitbank)) : 0;
         const mon = recMon ? (n(p.valor_pago_monetali) || n(p.monetali)) : 0;
         totalVB += vb; totalMon += mon; totalComp += vb + mon;
-        rows.push({
-          nome: p.cliente_nome || "—",
-          tipo: "Recebido",
-          vitbank: vb,
-          monetali: mon,
-          total: vb + mon,
-          status: p.cliente_status || "nao_iniciado",
-        });
+        rows.push({ nome: p.cliente_nome || "—", tipo: "Recebido", vitbank: vb, monetali: mon, total: vb + mon, ...dateFields });
       }
 
       // Vencido naquele dia (sem pgto)
@@ -518,14 +554,7 @@ export default function DashboardFinanceiro() {
         const vb = vencVB ? n(p.vitbank) : 0;
         const mon = vencMon ? n(p.monetali) : 0;
         totalVB += vb; totalMon += mon; totalComp += vb + mon;
-        rows.push({
-          nome: p.cliente_nome || "—",
-          tipo: "Vencido",
-          vitbank: vb,
-          monetali: mon,
-          total: vb + mon,
-          status: p.cliente_status || "nao_iniciado",
-        });
+        rows.push({ nome: p.cliente_nome || "—", tipo: "Vencido", vitbank: vb, monetali: mon, total: vb + mon, ...dateFields });
       }
 
       // Novo cadastro naquele dia (por data de vencimento)
@@ -533,27 +562,20 @@ export default function DashboardFinanceiro() {
       if (dataEntradaDrill?.slice(0, 10) === diaISO) {
         const vb = n(p.vitbank);
         const mon = n(p.monetali);
-        // Don't double-count if already added as Recebido or Vencido
         if (!recVB && !recMon && !vencVB && !vencMon) {
           totalVB += vb; totalMon += mon; totalComp += vb + mon;
         }
-        rows.push({
-          nome: p.cliente_nome || "—",
-          tipo: "Novo",
-          vitbank: vb,
-          monetali: mon,
-          total: vb + mon,
-          status: p.cliente_status || "nao_iniciado",
-        });
+        rows.push({ nome: p.cliente_nome || "—", tipo: "Novo", vitbank: vb, monetali: mon, total: vb + mon, ...dateFields });
       }
     }
 
     rows.sort((a, b) => b.total - a.total);
     setDrill({ label, diaISO, rows, totalVB, totalMon, totalComp });
     setDrillSearch("");
+    setDrillFilter("Todos");
   }, [pagamentos]);
 
-  function closeDrill() { setDrill(null); setDrillSearch(""); }
+  function closeDrill() { setDrill(null); setDrillSearch(""); setDrillFilter("Todos"); }
 
   function toggleSerie(w: string) {
     if (w === "rvb") setShowRecVB((v) => !v);
@@ -589,9 +611,78 @@ export default function DashboardFinanceiro() {
     );
   };
 
-  const filteredDrill = drill
-    ? drill.rows.filter((r) => r.nome.toLowerCase().includes(drillSearch.toLowerCase()))
-    : [];
+  // Drill rows: filter by tipo chip, then by search
+  const drillByTipo = useMemo(() => {
+    if (!drill) return [];
+    return drillFilter === "Todos"
+      ? drill.rows
+      : drill.rows.filter((r) => r.tipo === drillFilter);
+  }, [drill, drillFilter]);
+
+  const filteredDrill = useMemo(() => {
+    if (!drillSearch) return drillByTipo;
+    const q = drillSearch.toLowerCase();
+    return drillByTipo.filter((r) => r.nome.toLowerCase().includes(q));
+  }, [drillByTipo, drillSearch]);
+
+  // Counts per tipo (for chip badges) — always from all rows, not filtered by search
+  const drillCounts = useMemo(() => {
+    if (!drill) return { Recebido: 0, Vencido: 0, Novo: 0 };
+    const c = { Recebido: 0, Vencido: 0, Novo: 0 };
+    for (const r of drill.rows) c[r.tipo]++;
+    return c;
+  }, [drill]);
+
+  // Totals recalculated from filteredDrill
+  const drillFilteredTotals = useMemo(() => {
+    let vb = 0, mon = 0;
+    for (const r of filteredDrill) { vb += r.vitbank; mon += r.monetali; }
+    return { vb, mon, total: vb + mon };
+  }, [filteredDrill]);
+
+  // ─── Drill-aware distribution & aging ─────────────────────────
+  const drillDistrib = useMemo(() => {
+    if (!drill) return null;
+    const rows = drillByTipo; // respects tipo filter, not search
+    let recVB = 0, recMon = 0, vencido = 0, novo = 0;
+    for (const r of rows) {
+      if (r.tipo === "Recebido") { recVB += r.vitbank; recMon += r.monetali; }
+      else if (r.tipo === "Vencido") { vencido += r.total; }
+      else { novo += r.total; }
+    }
+    const total = recVB + recMon + vencido + novo;
+    const pct = (v: number) => total > 0 ? ((v / total) * 100).toFixed(1) : "0";
+    return [
+      { label: "Recebido VITBANK", valor: recVB, cor: "#378ADD", pct: pct(recVB) },
+      { label: "Recebido MONETALI", valor: recMon, cor: "#1D9E75", pct: pct(recMon) },
+      { label: "Novo cadastro", valor: novo, cor: "#F59E0B", pct: pct(novo) },
+      { label: "Vencido (não pago)", valor: vencido, cor: "#EF4444", pct: pct(vencido) },
+    ];
+  }, [drill, drillByTipo]);
+
+  const drillAging = useMemo(() => {
+    if (!drill) return null;
+    const rows = drillByTipo;
+    const bands = [
+      { l: "1–30 dias", min: 1, max: 30, c: "y" as const },
+      { l: "31–90 dias", min: 31, max: 90, c: "y" as const },
+      { l: "91–180 dias", min: 91, max: 180, c: "r" as const },
+      { l: "181–365 dias", min: 181, max: 365, c: "r" as const },
+      { l: "+ 1 ano", min: 366, max: Infinity, c: "r" as const },
+    ];
+    const totalVal = rows.reduce((a, r) => a + r.total, 0);
+    return bands.map((b) => {
+      const matched = rows.filter((r) => {
+        const vcto = earliestVcto(r.vctoVB, r.vctoMon);
+        if (!vcto) return false;
+        const dias = diffDays(hoje, vcto);
+        return dias >= b.min && dias <= b.max;
+      });
+      const val = matched.reduce((a, r) => a + r.total, 0);
+      const pct = totalVal > 0 ? ((val / totalVal) * 100).toFixed(0) : "0";
+      return { l: b.l, count: matched.length, valor: val, pct, c: b.c };
+    });
+  }, [drill, drillByTipo, hoje]);
 
   const years: number[] = [];
   for (let y = now.getFullYear(); y >= now.getFullYear() - 3; y--) years.push(y);
@@ -827,33 +918,65 @@ export default function DashboardFinanceiro() {
       {/* ─── Drill-down ─── */}
       {drill && (
         <div className="bg-white border border-gray-200 rounded-xl p-5 mb-3">
+          {/* Header: título + totais filtrados + fechar */}
           <div className="flex items-start justify-between mb-3 gap-2">
             <div>
               <div className="text-sm font-medium text-gray-800">Pagamentos — {drill.label}</div>
               <div className="flex gap-4 mt-1 text-xs">
-                <span className="text-blue-600 font-medium">VITBANK: {fmt(drill.totalVB)}</span>
-                <span className="text-green-600 font-medium">MONETALI: {fmt(drill.totalMon)}</span>
-                <span className="text-amber-600 font-medium">Total: {fmt(drill.totalComp)}</span>
+                <span className="text-blue-600 font-medium">VITBANK: {fmt(drillFilteredTotals.vb)}</span>
+                <span className="text-green-600 font-medium">MONETALI: {fmt(drillFilteredTotals.mon)}</span>
+                <span className="text-amber-600 font-medium">Total: {fmt(drillFilteredTotals.total)}</span>
               </div>
             </div>
             <button onClick={closeDrill} className="text-xs text-gray-500 border border-gray-200 rounded-lg px-2 py-1 hover:bg-gray-50">Fechar</button>
           </div>
-          <input
-            value={drillSearch}
-            onChange={(e) => setDrillSearch(e.target.value)}
-            placeholder="Buscar cliente..."
-            className="w-full text-xs px-3 py-2 rounded-lg border border-gray-200 bg-gray-50 text-gray-700 mb-3"
-          />
+
+          {/* Chips de filtro por tipo + busca */}
+          <div className="flex items-center gap-2 flex-wrap mb-3">
+            {([
+              { key: "Todos" as const, icon: "", color: "gray" },
+              { key: "Recebido" as const, icon: "\u2705", color: "green" },
+              { key: "Novo" as const, icon: "\uD83C\uDD95", color: "blue" },
+              { key: "Vencido" as const, icon: "\u274C", color: "red" },
+            ] as const).map((chip) => {
+              const count = chip.key === "Todos" ? drill.rows.length : drillCounts[chip.key];
+              const isActive = drillFilter === chip.key;
+              const colorMap: Record<string, { active: string; inactive: string }> = {
+                gray: { active: "bg-gray-800 text-white", inactive: "bg-gray-100 text-gray-600 hover:bg-gray-200" },
+                green: { active: "bg-green-600 text-white", inactive: "bg-green-50 text-green-700 hover:bg-green-100" },
+                blue: { active: "bg-blue-600 text-white", inactive: "bg-blue-50 text-blue-700 hover:bg-blue-100" },
+                red: { active: "bg-red-600 text-white", inactive: "bg-red-50 text-red-700 hover:bg-red-100" },
+              };
+              const cls = isActive ? colorMap[chip.color].active : colorMap[chip.color].inactive;
+              return (
+                <button
+                  key={chip.key}
+                  onClick={() => setDrillFilter(chip.key)}
+                  className={`text-xs px-3 py-1.5 rounded-full font-medium transition-colors ${cls}`}
+                >
+                  {chip.icon ? `${chip.icon} ` : ""}{chip.key} ({count})
+                </button>
+              );
+            })}
+            <input
+              value={drillSearch}
+              onChange={(e) => setDrillSearch(e.target.value)}
+              placeholder="Buscar cliente..."
+              className="ml-auto text-xs px-3 py-1.5 rounded-lg border border-gray-200 bg-gray-50 text-gray-700 w-48"
+            />
+          </div>
+
+          {/* Tabela */}
           <div className="overflow-x-auto">
             <table className="w-full text-xs" style={{ tableLayout: "fixed" }}>
               <thead>
                 <tr className="border-b border-gray-100">
-                  <th className="text-left text-gray-500 font-medium py-2 px-2" style={{ width: "30%" }}>Cliente</th>
-                  <th className="text-center text-gray-500 font-medium py-2 px-2" style={{ width: "14%" }}>Tipo</th>
+                  <th className="text-left text-gray-500 font-medium py-2 px-2" style={{ width: "26%" }}>Cliente</th>
+                  <th className="text-center text-gray-500 font-medium py-2 px-2" style={{ width: "12%" }}>Tipo</th>
                   <th className="text-right text-gray-500 font-medium py-2 px-2" style={{ width: "14%" }}>VITBANK</th>
                   <th className="text-right text-gray-500 font-medium py-2 px-2" style={{ width: "14%" }}>MONETALI</th>
                   <th className="text-right text-gray-500 font-medium py-2 px-2" style={{ width: "14%" }}>Total</th>
-                  <th className="text-center text-gray-500 font-medium py-2 px-2" style={{ width: "14%" }}>Status</th>
+                  <th className="text-right text-gray-500 font-medium py-2 px-2" style={{ width: "20%" }}>Dias Vencido</th>
                 </tr>
               </thead>
               <tbody>
@@ -863,7 +986,8 @@ export default function DashboardFinanceiro() {
                     : r.tipo === "Vencido"
                     ? "bg-red-100 text-red-800"
                     : "bg-blue-100 text-blue-800";
-                  const tipoIcon = r.tipo === "Recebido" ? "✅" : r.tipo === "Vencido" ? "❌" : "🆕";
+                  const tipoIcon = r.tipo === "Recebido" ? "\u2705" : r.tipo === "Vencido" ? "\u274C" : "\uD83C\uDD95";
+                  const diasInfo = computeDiasVencido(r, hoje);
                   return (
                     <tr key={i} className="border-b border-gray-50 hover:bg-gray-50">
                       <td className="py-2 px-2 text-gray-800 truncate" title={r.nome}>{r.nome}</td>
@@ -875,8 +999,8 @@ export default function DashboardFinanceiro() {
                       <td className="py-2 px-2 text-right text-blue-600">{fmt(r.vitbank)}</td>
                       <td className="py-2 px-2 text-right text-green-600">{fmt(r.monetali)}</td>
                       <td className="py-2 px-2 text-right font-medium">{fmt(r.total)}</td>
-                      <td className="py-2 px-2 text-center text-gray-500">
-                        {STATUS_LABELS[r.status] || r.status}
+                      <td className={`py-2 px-2 text-right text-xs ${diasInfo.colorClass}`}>
+                        {diasInfo.label}
                       </td>
                     </tr>
                   );
@@ -886,7 +1010,7 @@ export default function DashboardFinanceiro() {
           </div>
           <div className="flex justify-between mt-2.5 text-xs text-gray-400">
             <span>{filteredDrill.length} pagamentos</span>
-            <span>Total: <span className="font-medium text-gray-700">{fmt(filteredDrill.reduce((a, r) => a + r.total, 0))}</span></span>
+            <span>Total: <span className="font-medium text-gray-700">{fmt(drillFilteredTotals.total)}</span></span>
           </div>
         </div>
       )}
@@ -895,9 +1019,13 @@ export default function DashboardFinanceiro() {
       <div className="grid grid-cols-2 gap-2.5 mb-3">
         {/* Distribuição por tipo de movimentação */}
         <div className="bg-white border border-gray-200 rounded-xl p-5">
-          <div className="text-sm font-medium text-gray-800 mb-3">Distribuição por tipo de movimentação</div>
-          {distrib.map((d) => {
-            const distribTotal = distrib.reduce((a, x) => a + x.valor, 0);
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-sm font-medium text-gray-800">Distribuição por tipo de movimentação</span>
+            {drill && <span className="text-xs text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full">filtrado</span>}
+          </div>
+          {(drillDistrib || distrib).map((d) => {
+            const items = drillDistrib || distrib;
+            const distribTotal = items.reduce((a, x) => a + x.valor, 0);
             const pctBar = distribTotal > 0 ? ((d.valor / distribTotal) * 100) : 0;
             return (
               <div key={d.label} className="flex items-center gap-2 mb-2">
@@ -914,8 +1042,11 @@ export default function DashboardFinanceiro() {
 
         {/* Aging da carteira */}
         <div className="bg-white border border-gray-200 rounded-xl p-5">
-          <div className="text-sm font-medium text-gray-800 mb-3">Aging da carteira</div>
-          {agingBands.map((f) => (
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-sm font-medium text-gray-800">Aging da carteira</span>
+            {drill && <span className="text-xs text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full">filtrado</span>}
+          </div>
+          {(drillAging || agingBands).map((f) => (
             <div key={f.l} className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-b-0 text-xs">
               <span className="text-gray-500">{f.l} ({f.count})</span>
               <div className="flex items-center gap-2">
