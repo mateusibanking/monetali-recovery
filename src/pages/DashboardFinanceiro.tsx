@@ -92,6 +92,7 @@ interface MonthRow {
 // Constants
 // ═══════════════════════════════════════════════════════════════════
 
+const DRILL_PAGE_SIZE = 50;
 const MONTHS_PT = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 const MONTHS_FULL = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 
@@ -202,6 +203,7 @@ export default function DashboardFinanceiro() {
   const [drill, setDrill] = useState<DrillState | null>(null);
   const [drillSearch, setDrillSearch] = useState("");
   const [drillFilter, setDrillFilter] = useState<DrillTipo | "Todos">("Todos");
+  const [drillPage, setDrillPage] = useState(0);
   const [ctxText, setCtxText] = useState("Últimos 7 dias");
 
   // ─── Fetch ────────────────────────────────────────────────────
@@ -573,9 +575,84 @@ export default function DashboardFinanceiro() {
     setDrill({ label, diaISO, rows, totalVB, totalMon, totalComp });
     setDrillSearch("");
     setDrillFilter("Todos");
+    setDrillPage(0);
   }, [pagamentos]);
 
-  function closeDrill() { setDrill(null); setDrillSearch(""); setDrillFilter("Todos"); }
+  // ─── Drill period (all days in range) ─────────────────────────
+  const openPeriodDrill = useCallback((daysSet: Set<string>, label: string) => {
+    const rows: DrillRow[] = [];
+    let totalVB = 0, totalMon = 0, totalComp = 0;
+    // Track (pagamento_id + tipo) to avoid duplication when a payment matches
+    // multiple categories on different days within the range
+    const seen = new Set<string>();
+
+    for (const p of pagamentos) {
+      const dateFields = {
+        vctoVB: p.vcto_vitbank,
+        vctoMon: p.vcto_monetali,
+        pgtoVB: p.pgto_vitbank,
+        pgtoMon: p.pgto_monetali,
+      };
+
+      // Recebido — pgto within period
+      const recVB = p.pgto_vitbank && daysSet.has(p.pgto_vitbank.slice(0, 10));
+      const recMon = p.pgto_monetali && daysSet.has(p.pgto_monetali.slice(0, 10));
+      if (recVB || recMon) {
+        const key = p.id + ":R";
+        if (!seen.has(key)) {
+          seen.add(key);
+          const vb = recVB ? (n(p.valor_pago_vitbank) || n(p.vitbank)) : 0;
+          const mon = recMon ? (n(p.valor_pago_monetali) || n(p.monetali)) : 0;
+          totalVB += vb; totalMon += mon; totalComp += vb + mon;
+          rows.push({ nome: p.cliente_nome || "—", tipo: "Recebido", vitbank: vb, monetali: mon, total: vb + mon, ...dateFields });
+        }
+      }
+
+      // Vencido — vcto within period, not paid
+      const vencVB = p.vcto_vitbank && daysSet.has(p.vcto_vitbank.slice(0, 10)) && !p.pgto_vitbank && p.status === "em_aberto";
+      const vencMon = p.vcto_monetali && daysSet.has(p.vcto_monetali.slice(0, 10)) && !p.pgto_monetali && p.status === "em_aberto";
+      if (vencVB || vencMon) {
+        const key = p.id + ":V";
+        if (!seen.has(key)) {
+          seen.add(key);
+          const vb = vencVB ? n(p.vitbank) : 0;
+          const mon = vencMon ? n(p.monetali) : 0;
+          totalVB += vb; totalMon += mon; totalComp += vb + mon;
+          rows.push({ nome: p.cliente_nome || "—", tipo: "Vencido", vitbank: vb, monetali: mon, total: vb + mon, ...dateFields });
+        }
+      }
+
+      // Novo — data_entrada within period
+      const dataEntrada = p.data_vencimento || p.vcto_vitbank || p.vcto_monetali;
+      if (dataEntrada && daysSet.has(dataEntrada.slice(0, 10))) {
+        const key = p.id + ":N";
+        if (!seen.has(key)) {
+          seen.add(key);
+          const vb = n(p.vitbank);
+          const mon = n(p.monetali);
+          const keyR = p.id + ":R";
+          const keyV = p.id + ":V";
+          if (!seen.has(keyR) && !seen.has(keyV)) {
+            // Only count towards totals if not already counted as Recebido/Vencido
+          } else {
+            // Already counted — still add row but don't double-count totals
+          }
+          if (!seen.has(keyR) && !seen.has(keyV)) {
+            totalVB += vb; totalMon += mon; totalComp += vb + mon;
+          }
+          rows.push({ nome: p.cliente_nome || "—", tipo: "Novo", vitbank: vb, monetali: mon, total: vb + mon, ...dateFields });
+        }
+      }
+    }
+
+    rows.sort((a, b) => b.total - a.total);
+    setDrill({ label, diaISO: "", rows, totalVB, totalMon, totalComp });
+    setDrillSearch("");
+    setDrillFilter("Todos");
+    setDrillPage(0);
+  }, [pagamentos]);
+
+  function closeDrill() { setDrill(null); setDrillSearch(""); setDrillFilter("Todos"); setDrillPage(0); }
 
   function toggleSerie(w: string) {
     if (w === "rvb") setShowRecVB((v) => !v);
@@ -633,12 +710,22 @@ export default function DashboardFinanceiro() {
     return c;
   }, [drill]);
 
-  // Totals recalculated from filteredDrill
+  // Totals recalculated from filteredDrill (ALL rows, not just current page)
   const drillFilteredTotals = useMemo(() => {
     let vb = 0, mon = 0;
     for (const r of filteredDrill) { vb += r.vitbank; mon += r.monetali; }
     return { vb, mon, total: vb + mon };
   }, [filteredDrill]);
+
+  // Paginated slice
+  const drillTotalPages = Math.max(1, Math.ceil(filteredDrill.length / DRILL_PAGE_SIZE));
+  const drillPageRows = useMemo(() => {
+    const start = drillPage * DRILL_PAGE_SIZE;
+    return filteredDrill.slice(start, start + DRILL_PAGE_SIZE);
+  }, [filteredDrill, drillPage]);
+
+  // Reset page when filter or search changes
+  useEffect(() => { setDrillPage(0); }, [drillFilter, drillSearch]);
 
   // ─── Drill-aware distribution & aging ─────────────────────────
   const drillDistrib = useMemo(() => {
@@ -833,6 +920,24 @@ export default function DashboardFinanceiro() {
         ))}
       </div>
 
+      {/* ─── Botão Ver pagamentos do período ─── */}
+      {!drill && (
+        <div className="mb-4">
+          <button
+            onClick={() => {
+              const label = periodStart === periodEnd
+                ? fmtDayLabel(periodStart)
+                : `${fmtDayLabel(periodStart)} a ${fmtDayLabel(periodEnd)}`;
+              openPeriodDrill(periodSet, label);
+            }}
+            className="inline-flex items-center gap-2 text-xs px-4 py-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 transition-colors"
+          >
+            <span>📋</span>
+            Ver pagamentos do período
+          </button>
+        </div>
+      )}
+
       {/* ─── Gráfico ─── */}
       <div className="bg-white border border-gray-200 rounded-xl p-5 mb-3">
         <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
@@ -980,7 +1085,7 @@ export default function DashboardFinanceiro() {
                 </tr>
               </thead>
               <tbody>
-                {filteredDrill.map((r, i) => {
+                {drillPageRows.map((r, i) => {
                   const tipoBadge = r.tipo === "Recebido"
                     ? "bg-green-100 text-green-800"
                     : r.tipo === "Vencido"
@@ -1008,9 +1113,38 @@ export default function DashboardFinanceiro() {
               </tbody>
             </table>
           </div>
-          <div className="flex justify-between mt-2.5 text-xs text-gray-400">
-            <span>{filteredDrill.length} pagamentos</span>
-            <span>Total: <span className="font-medium text-gray-700">{fmt(drillFilteredTotals.total)}</span></span>
+
+          {/* Rodapé com paginação */}
+          <div className="flex items-center justify-between mt-2.5 text-xs text-gray-400">
+            <span>
+              {filteredDrill.length > DRILL_PAGE_SIZE
+                ? `Mostrando ${drillPage * DRILL_PAGE_SIZE + 1}–${Math.min((drillPage + 1) * DRILL_PAGE_SIZE, filteredDrill.length)} de ${filteredDrill.length} pagamentos`
+                : `${filteredDrill.length} pagamentos`}
+            </span>
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-gray-700">Total: {fmt(drillFilteredTotals.total)}</span>
+              {drillTotalPages > 1 && (
+                <div className="flex items-center gap-1 ml-3">
+                  <button
+                    onClick={() => setDrillPage((p) => Math.max(0, p - 1))}
+                    disabled={drillPage === 0}
+                    className="px-2 py-1 rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    ‹
+                  </button>
+                  <span className="text-gray-600 font-medium px-1">
+                    {drillPage + 1} / {drillTotalPages}
+                  </span>
+                  <button
+                    onClick={() => setDrillPage((p) => Math.min(drillTotalPages - 1, p + 1))}
+                    disabled={drillPage >= drillTotalPages - 1}
+                    className="px-2 py-1 rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    ›
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
