@@ -159,6 +159,11 @@ export default function DashboardFinanceiro() {
   const [pagamentos, setPagamentos] = useState<DbPagamento[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Custom date range
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+  const [isCustom, setIsCustom] = useState(false);
+
   const [drill, setDrill] = useState<DrillState | null>(null);
   const [drillSearch, setDrillSearch] = useState("");
   const [ctxText, setCtxText] = useState("Últimos 7 dias");
@@ -203,6 +208,11 @@ export default function DashboardFinanceiro() {
   // ─── Period ───────────────────────────────────────────────────
   const periodDays = useMemo(() => {
     if (mode === "dias") {
+      if (isCustom && customStart && customEnd) {
+        const s = new Date(customStart + "T00:00:00");
+        const e = new Date(customEnd + "T00:00:00");
+        if (s <= e) return dateRange(s, e);
+      }
       const end = new Date(now);
       const start = new Date(now);
       start.setDate(start.getDate() - (days - 1));
@@ -215,47 +225,64 @@ export default function DashboardFinanceiro() {
       return dateRange(start, new Date(selectedYear, selectedMonth, lastDay));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, days, selectedYear, selectedMonth]);
+  }, [mode, days, selectedYear, selectedMonth, isCustom, customStart, customEnd]);
 
-  // ─── KPIs ─────────────────────────────────────────────────────
+  // ─── Period set for fast lookup ────────────────────────────────
+  const periodSet = useMemo(() => new Set(periodDays), [periodDays]);
+  const periodStart = periodDays[0] || hoje;
+  const periodEnd = periodDays[periodDays.length - 1] || hoje;
+
+  // ─── KPIs (filtradas pelo período selecionado) ────────────────
   const kpis = useMemo(() => {
     let totalRecebido = 0;
     let totalPendente = 0;
     let totalVencido = 0;
     let novosMes = 0;
-    const mesAtual = toDateStr(now).slice(0, 7); // YYYY-MM
 
     for (const p of pagamentos) {
       const pagoVB = p.pgto_vitbank != null;
       const pagoMon = p.pgto_monetali != null;
 
-      // Recebido
-      if (pagoVB || pagoMon) {
-        totalRecebido += (pagoVB ? (n(p.valor_pago_vitbank) || n(p.vitbank)) : 0)
-                       + (pagoMon ? (n(p.valor_pago_monetali) || n(p.monetali)) : 0);
+      // Recebido — pgto caiu dentro do período
+      if (pagoVB && p.pgto_vitbank) {
+        const d = p.pgto_vitbank.slice(0, 10);
+        if (periodSet.has(d)) {
+          totalRecebido += n(p.valor_pago_vitbank) || n(p.vitbank);
+        }
       }
-
-      // Pendente vs Vencido
-      if (p.status === "em_aberto") {
-        const venc = p.data_vencimento?.slice(0, 10) || "";
-        const val = n(p.vitbank) + n(p.monetali);
-        if (venc >= hoje) {
-          totalPendente += val;
-        } else {
-          totalVencido += val;
+      if (pagoMon && p.pgto_monetali) {
+        const d = p.pgto_monetali.slice(0, 10);
+        if (periodSet.has(d)) {
+          totalRecebido += n(p.valor_pago_monetali) || n(p.monetali);
         }
       }
 
-      // Novos cadastros no mês selecionado (por data de vencimento, não created_at)
+      // Pendente vs Vencido — vencimento dentro do período
+      if (p.status === "em_aberto") {
+        const venc = p.data_vencimento?.slice(0, 10) || "";
+        if (venc >= periodStart && venc <= periodEnd) {
+          const val = n(p.vitbank) + n(p.monetali);
+          if (venc >= hoje) {
+            totalPendente += val;
+          } else {
+            totalVencido += val;
+          }
+        }
+      }
+
+      // Novos cadastros no período
       const dataEntrada = p.data_vencimento || p.vcto_vitbank || p.vcto_monetali;
-      if (dataEntrada?.slice(0, 7) === mesAtual) {
-        novosMes++;
+      if (dataEntrada) {
+        const d = dataEntrada.slice(0, 10);
+        if (periodSet.has(d)) {
+          novosMes++;
+        }
       }
     }
 
     return { totalRecebido, totalPendente, totalVencido, novosMes };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pagamentos]);
+  }, [pagamentos, periodSet, periodStart, periodEnd]);
 
   // ─── Daily series ─────────────────────────────────────────────
   const seriesData = useMemo(() => {
@@ -322,6 +349,31 @@ export default function DashboardFinanceiro() {
       };
     });
   }, [pagamentos, periodDays]);
+
+  // ─── Week-grouping when period > 90 days ───────────────────────
+  const isLongPeriod = periodDays.length > 90;
+  const chartData = useMemo(() => {
+    if (!isLongPeriod) return seriesData;
+    // Agrupar por semana (blocos de 7 dias)
+    const weeks: DayPoint[] = [];
+    for (let i = 0; i < seriesData.length; i += 7) {
+      const chunk = seriesData.slice(i, i + 7);
+      const first = chunk[0];
+      const last = chunk[chunk.length - 1];
+      weeks.push({
+        dia: `${first.dia}–${last.dia}`,
+        diaISO: first.diaISO,
+        recebidoVB: chunk.reduce((a, p) => a + p.recebidoVB, 0),
+        recebidoMon: chunk.reduce((a, p) => a + p.recebidoMon, 0),
+        vencido: chunk.reduce((a, p) => a + p.vencido, 0),
+        novos: chunk.reduce((a, p) => a + p.novos, 0),
+        qtdRecebido: chunk.reduce((a, p) => a + p.qtdRecebido, 0),
+        qtdVencido: chunk.reduce((a, p) => a + p.qtdVencido, 0),
+        qtdNovos: chunk.reduce((a, p) => a + p.qtdNovos, 0),
+      });
+    }
+    return weeks;
+  }, [seriesData, isLongPeriod]);
 
   // ─── Composição bar (baseada em RECEBIDOS) ────────────────────
   const recebidoTotalVB = useMemo(() =>
@@ -573,18 +625,64 @@ export default function DashboardFinanceiro() {
           ))}
         </div>
         {mode === "dias" && (
-          <div className="flex gap-2 flex-wrap">
-            {[7, 14, 30, 60, 90].map((d) => (
+          <div className="flex flex-col gap-2.5">
+            {/* Botões de atalho */}
+            <div className="flex gap-2 flex-wrap">
+              {[7, 14, 30, 60, 90].map((d) => (
+                <button
+                  key={d}
+                  onClick={() => { setDays(d); setIsCustom(false); setCtxText(`Últimos ${d} dias`); closeDrill(); }}
+                  className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+                    !isCustom && days === d ? "bg-blue-50 text-blue-600 border-transparent" : "border-gray-200 text-gray-500 hover:bg-gray-50"
+                  }`}
+                >
+                  {d} dias
+                </button>
+              ))}
+            </div>
+            {/* Período customizado */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-gray-500">Período:</span>
+              <input
+                type="date"
+                value={customStart}
+                onChange={(e) => setCustomStart(e.target.value)}
+                max={customEnd || hoje}
+                className="text-xs px-2.5 py-1.5 rounded-lg border border-gray-200 bg-gray-50 text-gray-700"
+              />
+              <span className="text-xs text-gray-400">até</span>
+              <input
+                type="date"
+                value={customEnd}
+                onChange={(e) => setCustomEnd(e.target.value)}
+                min={customStart || undefined}
+                max={hoje}
+                className="text-xs px-2.5 py-1.5 rounded-lg border border-gray-200 bg-gray-50 text-gray-700"
+              />
               <button
-                key={d}
-                onClick={() => { setDays(d); setCtxText(`Últimos ${d} dias`); closeDrill(); }}
-                className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${
-                  days === d ? "bg-blue-50 text-blue-600 border-transparent" : "border-gray-200 text-gray-500 hover:bg-gray-50"
-                }`}
+                onClick={() => {
+                  if (!customStart || !customEnd) return;
+                  if (customStart > customEnd) return;
+                  setIsCustom(true);
+                  const s = customStart.split("-");
+                  const e = customEnd.split("-");
+                  setCtxText(`${s[2]}/${s[1]}/${s[0]} — ${e[2]}/${e[1]}/${e[0]}`);
+                  closeDrill();
+                }}
+                disabled={!customStart || !customEnd || customStart > customEnd}
+                className="text-xs px-3 py-1.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {d} dias
+                Aplicar
               </button>
-            ))}
+              {isCustom && (
+                <button
+                  onClick={() => { setIsCustom(false); setCtxText(`Últimos ${days} dias`); closeDrill(); }}
+                  className="text-xs px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50"
+                >
+                  Limpar
+                </button>
+              )}
+            </div>
           </div>
         )}
         {mode === "mes" && (
@@ -631,10 +729,10 @@ export default function DashboardFinanceiro() {
       {/* ─── KPIs ─── */}
       <div className="grid grid-cols-4 gap-2.5 mb-5">
         {[
-          { label: "Total Recebido", value: fmt(kpis.totalRecebido), sub: "pgto efetivado", subClass: "text-green-600" },
-          { label: "Total Pendente", value: fmt(kpis.totalPendente), sub: "a vencer", subClass: "text-amber-500" },
-          { label: "Total Vencido", value: fmt(kpis.totalVencido), sub: "não pago", subClass: "text-red-500" },
-          { label: "Novos Cadastros", value: String(kpis.novosMes), sub: "este mês", subClass: "text-blue-500" },
+          { label: "Total Recebido", value: fmt(kpis.totalRecebido), sub: "no período", subClass: "text-green-600" },
+          { label: "Total Pendente", value: fmt(kpis.totalPendente), sub: "a vencer no período", subClass: "text-amber-500" },
+          { label: "Total Vencido", value: fmt(kpis.totalVencido), sub: "não pago no período", subClass: "text-red-500" },
+          { label: "Novos Cadastros", value: String(kpis.novosMes), sub: "no período", subClass: "text-blue-500" },
         ].map((k) => (
           <div key={k.label} className="bg-gray-50 rounded-lg p-3.5">
             <div className="text-xs text-gray-500 mb-1">{k.label}</div>
@@ -648,7 +746,7 @@ export default function DashboardFinanceiro() {
       <div className="bg-white border border-gray-200 rounded-xl p-5 mb-3">
         <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-medium text-gray-800">Evolução diária</span>
+            <span className="text-sm font-medium text-gray-800">{isLongPeriod ? "Evolução semanal" : "Evolução diária"}</span>
             <div className="flex border border-gray-200 rounded-lg overflow-hidden">
               {(["valor", "qtd"] as const).map((m) => (
                 <button
@@ -691,22 +789,22 @@ export default function DashboardFinanceiro() {
         )}
         <div style={{ width: "100%", height: 280 }}>
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={seriesData} onClick={handleChartClick} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+            <LineChart data={chartData} onClick={handleChartClick} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,128,0.1)" />
               <XAxis dataKey="dia" tick={{ fontSize: 10, fill: "#888" }} tickLine={false} interval="preserveStartEnd" />
               <YAxis tick={{ fontSize: 11, fill: "#888" }} tickLine={false} axisLine={false} tickFormatter={(v: number) => metric === "qtd" ? `${v}` : fmt(v)} />
               <RechartsTooltip content={<CustomTooltip />} />
               {showRecVB && (
-                <Line type="monotone" dataKey={metric === "qtd" ? "qtdRecebido" : "recebidoVB"} name="VITBANK recebido" stroke="#378ADD" strokeWidth={2} dot={{ r: seriesData.length > 25 ? 2 : 4, fill: "#378ADD" }} activeDot={{ r: 6 }} />
+                <Line type="monotone" dataKey={metric === "qtd" ? "qtdRecebido" : "recebidoVB"} name="VITBANK recebido" stroke="#378ADD" strokeWidth={2} dot={{ r: chartData.length > 25 ? 2 : 4, fill: "#378ADD" }} activeDot={{ r: 6 }} />
               )}
               {showRecMon && (
-                <Line type="monotone" dataKey={metric === "qtd" ? "qtdRecebido" : "recebidoMon"} name="MONETALI recebido" stroke="#1D9E75" strokeWidth={2} dot={{ r: seriesData.length > 25 ? 2 : 4, fill: "#1D9E75" }} activeDot={{ r: 6 }} />
+                <Line type="monotone" dataKey={metric === "qtd" ? "qtdRecebido" : "recebidoMon"} name="MONETALI recebido" stroke="#1D9E75" strokeWidth={2} dot={{ r: chartData.length > 25 ? 2 : 4, fill: "#1D9E75" }} activeDot={{ r: 6 }} />
               )}
               {showVencido && (
-                <Line type="monotone" dataKey={metric === "qtd" ? "qtdVencido" : "vencido"} name="Vencido" stroke="#EF4444" strokeWidth={2} strokeDasharray="5 3" dot={{ r: seriesData.length > 25 ? 2 : 3, fill: "#EF4444" }} activeDot={{ r: 5 }} />
+                <Line type="monotone" dataKey={metric === "qtd" ? "qtdVencido" : "vencido"} name="Vencido" stroke="#EF4444" strokeWidth={2} strokeDasharray="5 3" dot={{ r: chartData.length > 25 ? 2 : 3, fill: "#EF4444" }} activeDot={{ r: 5 }} />
               )}
               {showNovos && (
-                <Line type="monotone" dataKey={metric === "qtd" ? "qtdNovos" : "novos"} name="Novos cadastros" stroke="#BA7517" strokeWidth={1.5} strokeDasharray="3 4" dot={{ r: seriesData.length > 25 ? 2 : 3, fill: "#BA7517" }} activeDot={{ r: 5 }} />
+                <Line type="monotone" dataKey={metric === "qtd" ? "qtdNovos" : "novos"} name="Novos cadastros" stroke="#BA7517" strokeWidth={1.5} strokeDasharray="3 4" dot={{ r: chartData.length > 25 ? 2 : 3, fill: "#BA7517" }} activeDot={{ r: 5 }} />
               )}
             </LineChart>
           </ResponsiveContainer>
