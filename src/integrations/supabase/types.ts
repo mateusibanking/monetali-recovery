@@ -338,6 +338,109 @@ export type Database = {
         }
         Relationships: []
       }
+      importacoes_manuais: {
+        Row: {
+          arquivo_nome: string
+          arquivo_tamanho_bytes: number | null
+          detalhes: Json
+          finalizado_em: string | null
+          id: string
+          iniciado_em: string
+          mapeamento_colunas: Json
+          preset: string | null
+          qtd_atualizados: number
+          qtd_erros: number
+          qtd_ignorados: number
+          qtd_inseridos: number
+          qtd_linhas_planilha: number
+          status: string
+          tipo_destino: string
+          usuario_id: string | null
+        }
+        Insert: {
+          arquivo_nome: string
+          arquivo_tamanho_bytes?: number | null
+          detalhes?: Json
+          finalizado_em?: string | null
+          id?: string
+          iniciado_em?: string
+          mapeamento_colunas?: Json
+          preset?: string | null
+          qtd_atualizados?: number
+          qtd_erros?: number
+          qtd_ignorados?: number
+          qtd_inseridos?: number
+          qtd_linhas_planilha?: number
+          status?: string
+          tipo_destino: string
+          usuario_id?: string | null
+        }
+        Update: {
+          arquivo_nome?: string
+          arquivo_tamanho_bytes?: number | null
+          detalhes?: Json
+          finalizado_em?: string | null
+          id?: string
+          iniciado_em?: string
+          mapeamento_colunas?: Json
+          preset?: string | null
+          qtd_atualizados?: number
+          qtd_erros?: number
+          qtd_ignorados?: number
+          qtd_inseridos?: number
+          qtd_linhas_planilha?: number
+          status?: string
+          tipo_destino?: string
+          usuario_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "importacoes_manuais_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      metas: {
+        Row: {
+          id: string
+          observacao: string | null
+          periodo: string
+          tipo: string
+          updated_at: string
+          updated_by: string | null
+          valor: number
+        }
+        Insert: {
+          id?: string
+          observacao?: string | null
+          periodo: string
+          tipo: string
+          updated_at?: string
+          updated_by?: string | null
+          valor: number
+        }
+        Update: {
+          id?: string
+          observacao?: string | null
+          periodo?: string
+          tipo?: string
+          updated_at?: string
+          updated_by?: string | null
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "metas_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pagamentos_atraso: {
         Row: {
           anotacoes: string | null
@@ -602,6 +705,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      sync_log: {
+        Row: {
+          detalhes: Json
+          finalizado_em: string | null
+          fonte: string
+          id: string
+          iniciado_em: string
+          qtd_atualizados: number
+          qtd_erros: number
+          qtd_ignorados: number
+          qtd_inseridos: number
+          qtd_processados: number
+          status: string
+          triggered_by: string | null
+        }
+        Insert: {
+          detalhes?: Json
+          finalizado_em?: string | null
+          fonte: string
+          id?: string
+          iniciado_em?: string
+          qtd_atualizados?: number
+          qtd_erros?: number
+          qtd_ignorados?: number
+          qtd_inseridos?: number
+          qtd_processados?: number
+          status?: string
+          triggered_by?: string | null
+        }
+        Update: {
+          detalhes?: Json
+          finalizado_em?: string | null
+          fonte?: string
+          id?: string
+          iniciado_em?: string
+          qtd_atualizados?: number
+          qtd_erros?: number
+          qtd_ignorados?: number
+          qtd_inseridos?: number
+          qtd_processados?: number
+          status?: string
+          triggered_by?: string | null
+        }
+        Relationships: []
       }
     }
     Views: {
