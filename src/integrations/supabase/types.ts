@@ -125,6 +125,159 @@ export type Database = {
         }
         Relationships: []
       }
+      contas_a_receber: {
+        Row: {
+          anotacoes: string | null
+          boleto_vitbank: number | null
+          cliente_id: string
+          comentarios: Json
+          created_at: string | null
+          data_cobranca: string | null
+          data_pagamento: string | null
+          data_pagamento_efetivo: string | null
+          data_vencimento: string | null
+          deleted_at: string | null
+          descricao: string | null
+          dias_atraso: number | null
+          faturamento_ref: string | null
+          forma_pagamento: string | null
+          id: string
+          imposto: string | null
+          is_inadimplente: boolean | null
+          juros: number | null
+          mes_recuperacao: string | null
+          mes_referencia: string | null
+          monetali: number | null
+          motivo: string | null
+          origem_dado: string | null
+          pgto_boleto: string | null
+          pgto_monetali: string | null
+          pgto_pix: string | null
+          pgto_vitbank: string | null
+          pix_monetali: number | null
+          status: string | null
+          status_planilha: string | null
+          sync_hash: string | null
+          updated_at: string | null
+          valor: number
+          valor_compensacao: number | null
+          valor_inadimplente: number | null
+          valor_pago_efetivo: number | null
+          valor_pago_monetali: number | null
+          valor_pago_vitbank: number | null
+          vcto_boleto: string | null
+          vcto_monetali: string | null
+          vcto_pix: string | null
+          vcto_vitbank: string | null
+          vitbank: number | null
+        }
+        Insert: {
+          anotacoes?: string | null
+          boleto_vitbank?: number | null
+          cliente_id: string
+          comentarios?: Json
+          created_at?: string | null
+          data_cobranca?: string | null
+          data_pagamento?: string | null
+          data_pagamento_efetivo?: string | null
+          data_vencimento?: string | null
+          deleted_at?: string | null
+          descricao?: string | null
+          dias_atraso?: number | null
+          faturamento_ref?: string | null
+          forma_pagamento?: string | null
+          id?: string
+          imposto?: string | null
+          is_inadimplente?: boolean | null
+          juros?: number | null
+          mes_recuperacao?: string | null
+          mes_referencia?: string | null
+          monetali?: number | null
+          motivo?: string | null
+          origem_dado?: string | null
+          pgto_boleto?: string | null
+          pgto_monetali?: string | null
+          pgto_pix?: string | null
+          pgto_vitbank?: string | null
+          pix_monetali?: number | null
+          status?: string | null
+          status_planilha?: string | null
+          sync_hash?: string | null
+          updated_at?: string | null
+          valor?: number
+          valor_compensacao?: number | null
+          valor_inadimplente?: number | null
+          valor_pago_efetivo?: number | null
+          valor_pago_monetali?: number | null
+          valor_pago_vitbank?: number | null
+          vcto_boleto?: string | null
+          vcto_monetali?: string | null
+          vcto_pix?: string | null
+          vcto_vitbank?: string | null
+          vitbank?: number | null
+        }
+        Update: {
+          anotacoes?: string | null
+          boleto_vitbank?: number | null
+          cliente_id?: string
+          comentarios?: Json
+          created_at?: string | null
+          data_cobranca?: string | null
+          data_pagamento?: string | null
+          data_pagamento_efetivo?: string | null
+          data_vencimento?: string | null
+          deleted_at?: string | null
+          descricao?: string | null
+          dias_atraso?: number | null
+          faturamento_ref?: string | null
+          forma_pagamento?: string | null
+          id?: string
+          imposto?: string | null
+          is_inadimplente?: boolean | null
+          juros?: number | null
+          mes_recuperacao?: string | null
+          mes_referencia?: string | null
+          monetali?: number | null
+          motivo?: string | null
+          origem_dado?: string | null
+          pgto_boleto?: string | null
+          pgto_monetali?: string | null
+          pgto_pix?: string | null
+          pgto_vitbank?: string | null
+          pix_monetali?: number | null
+          status?: string | null
+          status_planilha?: string | null
+          sync_hash?: string | null
+          updated_at?: string | null
+          valor?: number
+          valor_compensacao?: number | null
+          valor_inadimplente?: number | null
+          valor_pago_efetivo?: number | null
+          valor_pago_monetali?: number | null
+          valor_pago_vitbank?: number | null
+          vcto_boleto?: string | null
+          vcto_monetali?: string | null
+          vcto_pix?: string | null
+          vcto_vitbank?: string | null
+          vitbank?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contas_a_receber_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contas_a_receber_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes_com_totais"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       flags_cliente: {
         Row: {
           cliente_id: string
@@ -190,6 +343,7 @@ export type Database = {
           anotacoes: string | null
           boleto_vitbank: number | null
           cliente_id: string
+          comentarios: Json
           created_at: string | null
           data_cobranca: string | null
           data_pagamento: string | null
@@ -208,6 +362,7 @@ export type Database = {
           mes_referencia: string | null
           monetali: number | null
           motivo: string | null
+          origem_dado: string | null
           pgto_boleto: string | null
           pgto_monetali: string | null
           pgto_pix: string | null
@@ -215,6 +370,7 @@ export type Database = {
           pix_monetali: number | null
           status: string | null
           status_planilha: string | null
+          sync_hash: string | null
           updated_at: string | null
           valor: number
           valor_compensacao: number | null
@@ -232,6 +388,7 @@ export type Database = {
           anotacoes?: string | null
           boleto_vitbank?: number | null
           cliente_id: string
+          comentarios?: Json
           created_at?: string | null
           data_cobranca?: string | null
           data_pagamento?: string | null
@@ -250,6 +407,7 @@ export type Database = {
           mes_referencia?: string | null
           monetali?: number | null
           motivo?: string | null
+          origem_dado?: string | null
           pgto_boleto?: string | null
           pgto_monetali?: string | null
           pgto_pix?: string | null
@@ -257,6 +415,7 @@ export type Database = {
           pix_monetali?: number | null
           status?: string | null
           status_planilha?: string | null
+          sync_hash?: string | null
           updated_at?: string | null
           valor?: number
           valor_compensacao?: number | null
@@ -274,6 +433,7 @@ export type Database = {
           anotacoes?: string | null
           boleto_vitbank?: number | null
           cliente_id?: string
+          comentarios?: Json
           created_at?: string | null
           data_cobranca?: string | null
           data_pagamento?: string | null
@@ -292,6 +452,7 @@ export type Database = {
           mes_referencia?: string | null
           monetali?: number | null
           motivo?: string | null
+          origem_dado?: string | null
           pgto_boleto?: string | null
           pgto_monetali?: string | null
           pgto_pix?: string | null
@@ -299,6 +460,7 @@ export type Database = {
           pix_monetali?: number | null
           status?: string | null
           status_planilha?: string | null
+          sync_hash?: string | null
           updated_at?: string | null
           valor?: number
           valor_compensacao?: number | null
@@ -492,10 +654,10 @@ export type Database = {
       vw_recuperacao_mensal: {
         Row: {
           mes_recuperacao: string | null
-          qtd_clientes: number | null
           qtd_pagamentos: number | null
-          total_inadimplente: number | null
           total_recuperado: number | null
+          total_inadimplente: number | null
+          qtd_clientes: number | null
         }
         Relationships: []
       }
