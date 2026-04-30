@@ -210,9 +210,8 @@ const SincronizacaoPage = () => {
                       ? ((detalhes as any).erros as unknown[]).slice(0, 10)
                       : [];
                     return (
-                      <>
+                      <React.Fragment key={row.id}>
                         <tr
-                          key={row.id}
                           className={`border-t border-border ${idx % 2 === 1 ? 'bg-muted/20' : ''}`}
                         >
                           <td className="px-4 py-3 whitespace-nowrap">{formatDateTime(row.iniciado_em)}</td>
