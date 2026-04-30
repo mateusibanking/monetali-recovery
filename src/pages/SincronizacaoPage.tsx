@@ -314,19 +314,19 @@ const SincronizacaoPageContent = () => {
                                   </div>
                                   <div>
                                     <p className="text-muted-foreground uppercase tracking-wider">Inseridos</p>
-                                    <p className="font-semibold">{row.inseridos ?? 0}</p>
+                                    <p className="font-semibold">{safeNumber(row.inseridos)}</p>
                                   </div>
                                   <div>
                                     <p className="text-muted-foreground uppercase tracking-wider">Atualizados</p>
-                                    <p className="font-semibold">{row.atualizados ?? 0}</p>
+                                    <p className="font-semibold">{safeNumber(row.atualizados)}</p>
                                   </div>
                                   <div>
                                     <p className="text-muted-foreground uppercase tracking-wider">Ignorados</p>
-                                    <p className="font-semibold">{row.ignorados ?? 0}</p>
+                                    <p className="font-semibold">{safeNumber(row.ignorados)}</p>
                                   </div>
                                 </div>
                                 {row.mensagem && (
-                                  <p className="text-sm text-muted-foreground italic">{row.mensagem}</p>
+                                  <p className="text-sm text-muted-foreground italic">{safeRender(row.mensagem)}</p>
                                 )}
                                 {errosLista.length > 0 && (
                                   <div>
@@ -336,7 +336,7 @@ const SincronizacaoPageContent = () => {
                                     <ul className="text-xs space-y-1 list-disc list-inside text-red-800">
                                       {errosLista.map((e, i) => (
                                         <li key={i} className="break-words">
-                                          {renderErro(e)}
+                                          {safeRender(e)}
                                         </li>
                                       ))}
                                     </ul>
@@ -348,7 +348,7 @@ const SincronizacaoPageContent = () => {
                                       Ver detalhes JSON
                                     </summary>
                                     <pre className="mt-2 p-3 bg-muted/40 rounded-lg overflow-x-auto text-[11px] leading-relaxed">
-                                      {JSON.stringify(detalhes, null, 2)}
+                                      {safeJson(detalhes)}
                                     </pre>
                                   </details>
                                 )}
