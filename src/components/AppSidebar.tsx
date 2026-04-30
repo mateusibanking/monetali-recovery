@@ -30,18 +30,20 @@ const AppSidebar = () => {
       </div>
 
       <nav className="flex-1 p-3 space-y-1">
-        {navItems.map(item => (
-          <NavLink
-            key={item.url}
-            to={item.url}
-            end={item.url === '/'}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-[hsl(var(--sidebar-muted))] hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
-            activeClassName="bg-sidebar-accent text-sidebar-primary font-semibold"
-          >
-            <item.icon className="h-4 w-4 shrink-0" />
-            <span>{item.title}</span>
-          </NavLink>
-        ))}
+        {navItems
+          .filter(item => !item.roles || (profile && item.roles.includes(profile.role)))
+          .map(item => (
+            <NavLink
+              key={item.url}
+              to={item.url}
+              end={item.url === '/'}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-[hsl(var(--sidebar-muted))] hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+              activeClassName="bg-sidebar-accent text-sidebar-primary font-semibold"
+            >
+              <item.icon className="h-4 w-4 shrink-0" />
+              <span>{item.title}</span>
+            </NavLink>
+          ))}
       </nav>
 
       {/* User info + logout */}
