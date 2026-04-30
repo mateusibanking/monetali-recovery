@@ -196,7 +196,7 @@ const SincronizacaoPageContent = () => {
                   {ultimoStatus && <StatusBadge kind={ultimoStatus} />}
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  <span className="font-semibold text-foreground">{safeNumber(ultimo.atualizados)}</span> pagamentos atualizados
+                  <span className="font-semibold text-foreground">{safeNumber(ultimo.registros_atualizados)}</span> pagamentos atualizados
                   {' · '}
                   <span className="font-semibold text-foreground">{safeNumber(ultimo.erros)}</span> erros
                 </p>
@@ -276,7 +276,7 @@ const SincronizacaoPageContent = () => {
                 <tbody>
                   {historico.map((row, idx) => {
                     const open = !!expandido[row.id];
-                    const processados = safeNumber(row.inseridos) + safeNumber(row.atualizados);
+                    const processados = safeNumber(row.registros_inseridos) + safeNumber(row.registros_atualizados);
                     const detalhes = row.detalhes;
                     const errosLista = getErrosLista(detalhes);
                     return (
@@ -286,7 +286,7 @@ const SincronizacaoPageContent = () => {
                         >
                           <td className="px-4 py-3 whitespace-nowrap">{formatDateTime(row.iniciado_em)}</td>
                           <td className="px-4 py-3"><StatusBadge kind={classifyStatus(row)} /></td>
-                          <td className="px-4 py-3 text-right tabular-nums">{safeNumber(row.lidos)}</td>
+                          <td className="px-4 py-3 text-right tabular-nums">{safeNumber(row.registros_lidos)}</td>
                           <td className="px-4 py-3 text-right tabular-nums">{processados}</td>
                           <td className="px-4 py-3 text-right tabular-nums">
                             <span className={safeNumber(row.erros) > 0 ? 'text-red-600 font-semibold' : ''}>
@@ -314,15 +314,15 @@ const SincronizacaoPageContent = () => {
                                   </div>
                                   <div>
                                     <p className="text-muted-foreground uppercase tracking-wider">Inseridos</p>
-                                    <p className="font-semibold">{safeNumber(row.inseridos)}</p>
+                                    <p className="font-semibold">{safeNumber(row.registros_inseridos)}</p>
                                   </div>
                                   <div>
                                     <p className="text-muted-foreground uppercase tracking-wider">Atualizados</p>
-                                    <p className="font-semibold">{safeNumber(row.atualizados)}</p>
+                                    <p className="font-semibold">{safeNumber(row.registros_atualizados)}</p>
                                   </div>
                                   <div>
                                     <p className="text-muted-foreground uppercase tracking-wider">Ignorados</p>
-                                    <p className="font-semibold">{safeNumber(row.ignorados)}</p>
+                                    <p className="font-semibold">{safeNumber(row.registros_ignorados)}</p>
                                   </div>
                                 </div>
                                 {row.mensagem && (
@@ -367,7 +367,7 @@ const SincronizacaoPageContent = () => {
             <div className="md:hidden divide-y divide-border">
               {historico.map((row, idx) => {
                 const open = !!expandido[row.id];
-                const processados = safeNumber(row.inseridos) + safeNumber(row.atualizados);
+                const processados = safeNumber(row.registros_inseridos) + safeNumber(row.registros_atualizados);
                 return (
                   <div key={row.id} className={`p-4 ${idx % 2 === 1 ? 'bg-muted/20' : ''}`}>
                     <div className="flex items-start justify-between gap-3 mb-2">
@@ -383,7 +383,7 @@ const SincronizacaoPageContent = () => {
                       </button>
                     </div>
                     <div className="grid grid-cols-3 gap-2 text-xs">
-                      <div><p className="text-muted-foreground">Lidos</p><p className="font-semibold">{safeNumber(row.lidos)}</p></div>
+                      <div><p className="text-muted-foreground">Lidos</p><p className="font-semibold">{safeNumber(row.registros_lidos)}</p></div>
                       <div><p className="text-muted-foreground">Processados</p><p className="font-semibold">{processados}</p></div>
                       <div><p className="text-muted-foreground">Erros</p><p className={`font-semibold ${safeNumber(row.erros) > 0 ? 'text-red-600' : ''}`}>{safeNumber(row.erros)}</p></div>
                     </div>
