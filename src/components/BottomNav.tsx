@@ -31,19 +31,21 @@ const BottomNav = () => {
               <X className="h-4 w-4 text-muted-foreground" />
             </button>
           </div>
-          {overflowNavItems.map(item => (
-            <NavLink
-              key={item.url}
-              to={item.url}
-              end={item.url === '/'}
-              className="flex items-center gap-3 px-3 min-h-[44px] rounded-lg text-sm text-muted-foreground transition-colors hover:bg-secondary"
-              activeClassName="text-accent bg-accent/10"
-              onClick={() => setShowMore(false)}
-            >
-              <item.icon className="h-5 w-5 shrink-0" />
-              <span>{item.title}</span>
-            </NavLink>
-          ))}
+          {overflowNavItems
+            .filter(item => !item.roles || (profile && item.roles.includes(profile.role)))
+            .map(item => (
+              <NavLink
+                key={item.url}
+                to={item.url}
+                end={item.url === '/'}
+                className="flex items-center gap-3 px-3 min-h-[44px] rounded-lg text-sm text-muted-foreground transition-colors hover:bg-secondary"
+                activeClassName="text-accent bg-accent/10"
+                onClick={() => setShowMore(false)}
+              >
+                <item.icon className="h-5 w-5 shrink-0" />
+                <span>{item.title}</span>
+              </NavLink>
+            ))}
           <div className="border-t border-border/50 mt-2 pt-2">
             {profile && (
               <p className="px-3 py-1 text-xs text-muted-foreground truncate">

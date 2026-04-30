@@ -1,5 +1,6 @@
-import { LayoutDashboard, AlertCircle, CheckCircle2, UserPlus, ClipboardList, TrendingUp, Settings, Upload, BarChart2 } from 'lucide-react';
+import { LayoutDashboard, AlertCircle, CheckCircle2, UserPlus, ClipboardList, TrendingUp, Settings, Upload, BarChart2, RefreshCw } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import type { UserRole } from '@/contexts/AuthContext';
 
 export interface NavItem {
   title: string;
@@ -7,10 +8,13 @@ export interface NavItem {
   icon: LucideIcon;
   /** Whether to show this item in the mobile bottom nav (max 5 visible) */
   showInBottomNav?: boolean;
+  /** If set, only users with one of these roles see this item */
+  roles?: UserRole[];
 }
 
 export const navItems: NavItem[] = [
   { title: 'Dashboard', url: '/', icon: LayoutDashboard, showInBottomNav: true },
+  { title: 'Sincronização', url: '/sincronizacao', icon: RefreshCw, roles: ['admin'] },
   { title: 'Inadimplentes', url: '/inadimplentes', icon: AlertCircle, showInBottomNav: true },
   { title: 'Recuperações', url: '/recuperacoes', icon: CheckCircle2, showInBottomNav: true },
   { title: 'Evolução', url: '/evolucao', icon: TrendingUp, showInBottomNav: true },
