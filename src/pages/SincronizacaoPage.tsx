@@ -284,7 +284,7 @@ const SincronizacaoPage = () => {
                                     <ul className="text-xs space-y-1 list-disc list-inside text-red-800">
                                       {errosLista.map((e, i) => (
                                         <li key={i} className="break-words">
-                                          {typeof e === 'string' ? e : JSON.stringify(e)}
+                                          {renderErro(e)}
                                         </li>
                                       ))}
                                     </ul>
