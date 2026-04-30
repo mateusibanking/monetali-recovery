@@ -133,7 +133,7 @@ function StatusBadge({ kind }: { kind: StatusKind }) {
   );
 }
 
-const SincronizacaoPage = () => {
+const SincronizacaoPageContent = () => {
   const { profile, loading: authLoading } = useAuth();
   const { sincronizando, sincronizar, buscarHistorico } = useSyncPlanilha();
 
@@ -196,9 +196,9 @@ const SincronizacaoPage = () => {
                   {ultimoStatus && <StatusBadge kind={ultimoStatus} />}
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  <span className="font-semibold text-foreground">{ultimo.atualizados ?? 0}</span> pagamentos atualizados
+                  <span className="font-semibold text-foreground">{safeNumber(ultimo.atualizados)}</span> pagamentos atualizados
                   {' · '}
-                  <span className="font-semibold text-foreground">{ultimo.erros ?? 0}</span> erros
+                  <span className="font-semibold text-foreground">{safeNumber(ultimo.erros)}</span> erros
                 </p>
               </div>
             )}
@@ -276,11 +276,9 @@ const SincronizacaoPage = () => {
                 <tbody>
                   {historico.map((row, idx) => {
                     const open = !!expandido[row.id];
-                    const processados = (row.inseridos ?? 0) + (row.atualizados ?? 0);
-                    const detalhes = row.detalhes as Record<string, unknown> | null;
-                    const errosLista = Array.isArray((detalhes as any)?.erros)
-                      ? ((detalhes as any).erros as unknown[]).slice(0, 10)
-                      : [];
+                    const processados = safeNumber(row.inseridos) + safeNumber(row.atualizados);
+                    const detalhes = row.detalhes;
+                    const errosLista = getErrosLista(detalhes);
                     return (
                       <React.Fragment key={row.id}>
                         <tr
@@ -288,11 +286,11 @@ const SincronizacaoPage = () => {
                         >
                           <td className="px-4 py-3 whitespace-nowrap">{formatDateTime(row.iniciado_em)}</td>
                           <td className="px-4 py-3"><StatusBadge kind={classifyStatus(row)} /></td>
-                          <td className="px-4 py-3 text-right tabular-nums">{row.lidos ?? 0}</td>
+                          <td className="px-4 py-3 text-right tabular-nums">{safeNumber(row.lidos)}</td>
                           <td className="px-4 py-3 text-right tabular-nums">{processados}</td>
                           <td className="px-4 py-3 text-right tabular-nums">
-                            <span className={row.erros && row.erros > 0 ? 'text-red-600 font-semibold' : ''}>
-                              {row.erros ?? 0}
+                            <span className={safeNumber(row.erros) > 0 ? 'text-red-600 font-semibold' : ''}>
+                              {safeNumber(row.erros)}
                             </span>
                           </td>
                           <td className="px-4 py-3">
