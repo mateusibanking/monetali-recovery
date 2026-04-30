@@ -37,6 +37,10 @@ function safeRender(value: unknown): string {
   return String(value);
 }
 
+function safeJson(value: unknown): string {
+  try { return JSON.stringify(value, null, 2); } catch { return safeRender(value); }
+}
+
 function safeNumber(value: unknown): number {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
   if (typeof value === 'string') {
@@ -73,14 +77,43 @@ type StatusKind = 'sucesso' | 'parcial' | 'erro' | 'em_andamento' | 'desconhecid
 
 function classifyStatus(row: Pick<SyncLogRow, 'status' | 'finalizado_em' | 'erros'>): StatusKind {
   const s = (row.status || '').toLowerCase();
+  const erros = safeNumber(row.erros);
   if (!row.finalizado_em || s === 'em_andamento' || s === 'running' || s === 'iniciado') return 'em_andamento';
   if (s.includes('erro') || s === 'error' || s === 'failed') return 'erro';
-  if (s.includes('parcial') || (typeof row.erros === 'number' && row.erros > 0 && s.includes('sucesso'))) return 'parcial';
+  if (s.includes('parcial') || (erros > 0 && s.includes('sucesso'))) return 'parcial';
   if (s === 'sucesso' || s === 'success' || s === 'ok' || s === 'completo' || s === 'completed') {
-    return typeof row.erros === 'number' && row.erros > 0 ? 'parcial' : 'sucesso';
+    return erros > 0 ? 'parcial' : 'sucesso';
   }
-  if (typeof row.erros === 'number' && row.erros > 0) return 'parcial';
+  if (erros > 0) return 'parcial';
   return 'desconhecido';
+}
+
+class SincronizacaoErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-4 md:p-8 max-w-6xl mx-auto">
+          <div className="rounded-xl border border-border bg-card text-card-foreground shadow-sm p-6">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+              <div>
+                <h1 className="text-lg font-bold text-foreground">Não foi possível renderizar a sincronização</h1>
+                <p className="text-sm text-muted-foreground mt-1">Atualize a página ou tente novamente em alguns instantes.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
 }
 
 function StatusBadge({ kind }: { kind: StatusKind }) {
