@@ -17,22 +17,47 @@ function formatDateTime(iso: string | null | undefined): string {
   return `${dd}/${mm}/${yyyy} às ${hh}:${mi}`;
 }
 
-function renderErro(e: unknown): string {
-  if (e == null) return '';
-  if (typeof e === 'string') return e;
-  if (typeof e === 'number' || typeof e === 'boolean') return String(e);
-  if (typeof e === 'object') {
-    const obj = e as Record<string, unknown>;
+function safeRender(value: unknown): string {
+  if (value == null) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') return String(value);
+  if (Array.isArray(value)) return value.map(safeRender).filter(Boolean).join(', ');
+  if (typeof value === 'object') {
+    const obj = value as Record<string, unknown>;
     const msg = obj.erro ?? obj.error ?? obj.message ?? obj.msg;
-    if (typeof msg === 'string') {
+    if (msg != null) {
       const extras: string[] = [];
-      if (obj.chunk != null) extras.push(`chunk ${String(obj.chunk)}`);
-      if (obj.linha != null) extras.push(`linha ${typeof obj.linha === 'object' ? JSON.stringify(obj.linha) : String(obj.linha)}`);
-      return extras.length ? `${msg} (${extras.join(', ')})` : msg;
+      if (obj.chunk != null) extras.push(`chunk ${safeRender(obj.chunk)}`);
+      if (obj.linha != null) extras.push(`linha ${safeRender(obj.linha)}`);
+      const base = safeRender(msg);
+      return extras.length ? `${base} (${extras.join(', ')})` : base;
     }
-    try { return JSON.stringify(e); } catch { return String(e); }
+    try { return JSON.stringify(value); } catch { return String(value); }
   }
-  return String(e);
+  return String(value);
+}
+
+function safeJson(value: unknown): string {
+  try { return JSON.stringify(value, null, 2); } catch { return safeRender(value); }
+}
+
+function safeNumber(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 0;
+  }
+  return 0;
+}
+
+function getObject(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
+}
+
+function getErrosLista(detalhes: unknown): unknown[] {
+  const obj = getObject(detalhes);
+  const erros = obj?.erros ?? obj?.errors;
+  return Array.isArray(erros) ? erros.slice(0, 10) : [];
 }
 
 function formatDuration(start: string | null, end: string | null): string {
@@ -51,15 +76,44 @@ function formatDuration(start: string | null, end: string | null): string {
 type StatusKind = 'sucesso' | 'parcial' | 'erro' | 'em_andamento' | 'desconhecido';
 
 function classifyStatus(row: Pick<SyncLogRow, 'status' | 'finalizado_em' | 'erros'>): StatusKind {
-  const s = (row.status || '').toLowerCase();
+  const s = safeRender(row.status).toLowerCase();
+  const erros = safeNumber(row.erros);
   if (!row.finalizado_em || s === 'em_andamento' || s === 'running' || s === 'iniciado') return 'em_andamento';
   if (s.includes('erro') || s === 'error' || s === 'failed') return 'erro';
-  if (s.includes('parcial') || (typeof row.erros === 'number' && row.erros > 0 && s.includes('sucesso'))) return 'parcial';
+  if (s.includes('parcial') || (erros > 0 && s.includes('sucesso'))) return 'parcial';
   if (s === 'sucesso' || s === 'success' || s === 'ok' || s === 'completo' || s === 'completed') {
-    return typeof row.erros === 'number' && row.erros > 0 ? 'parcial' : 'sucesso';
+    return erros > 0 ? 'parcial' : 'sucesso';
   }
-  if (typeof row.erros === 'number' && row.erros > 0) return 'parcial';
+  if (erros > 0) return 'parcial';
   return 'desconhecido';
+}
+
+class SincronizacaoErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-4 md:p-8 max-w-6xl mx-auto">
+          <div className="rounded-xl border border-border bg-card text-card-foreground shadow-sm p-6">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+              <div>
+                <h1 className="text-lg font-bold text-foreground">Não foi possível renderizar a sincronização</h1>
+                <p className="text-sm text-muted-foreground mt-1">Atualize a página ou tente novamente em alguns instantes.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
 }
 
 function StatusBadge({ kind }: { kind: StatusKind }) {
@@ -79,7 +133,7 @@ function StatusBadge({ kind }: { kind: StatusKind }) {
   );
 }
 
-const SincronizacaoPage = () => {
+const SincronizacaoPageContent = () => {
   const { profile, loading: authLoading } = useAuth();
   const { sincronizando, sincronizar, buscarHistorico } = useSyncPlanilha();
 
@@ -142,9 +196,9 @@ const SincronizacaoPage = () => {
                   {ultimoStatus && <StatusBadge kind={ultimoStatus} />}
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  <span className="font-semibold text-foreground">{ultimo.atualizados ?? 0}</span> pagamentos atualizados
+                  <span className="font-semibold text-foreground">{safeNumber(ultimo.atualizados)}</span> pagamentos atualizados
                   {' · '}
-                  <span className="font-semibold text-foreground">{ultimo.erros ?? 0}</span> erros
+                  <span className="font-semibold text-foreground">{safeNumber(ultimo.erros)}</span> erros
                 </p>
               </div>
             )}
@@ -222,11 +276,9 @@ const SincronizacaoPage = () => {
                 <tbody>
                   {historico.map((row, idx) => {
                     const open = !!expandido[row.id];
-                    const processados = (row.inseridos ?? 0) + (row.atualizados ?? 0);
-                    const detalhes = row.detalhes as Record<string, unknown> | null;
-                    const errosLista = Array.isArray((detalhes as any)?.erros)
-                      ? ((detalhes as any).erros as unknown[]).slice(0, 10)
-                      : [];
+                    const processados = safeNumber(row.inseridos) + safeNumber(row.atualizados);
+                    const detalhes = row.detalhes;
+                    const errosLista = getErrosLista(detalhes);
                     return (
                       <React.Fragment key={row.id}>
                         <tr
@@ -234,11 +286,11 @@ const SincronizacaoPage = () => {
                         >
                           <td className="px-4 py-3 whitespace-nowrap">{formatDateTime(row.iniciado_em)}</td>
                           <td className="px-4 py-3"><StatusBadge kind={classifyStatus(row)} /></td>
-                          <td className="px-4 py-3 text-right tabular-nums">{row.lidos ?? 0}</td>
+                          <td className="px-4 py-3 text-right tabular-nums">{safeNumber(row.lidos)}</td>
                           <td className="px-4 py-3 text-right tabular-nums">{processados}</td>
                           <td className="px-4 py-3 text-right tabular-nums">
-                            <span className={row.erros && row.erros > 0 ? 'text-red-600 font-semibold' : ''}>
-                              {row.erros ?? 0}
+                            <span className={safeNumber(row.erros) > 0 ? 'text-red-600 font-semibold' : ''}>
+                              {safeNumber(row.erros)}
                             </span>
                           </td>
                           <td className="px-4 py-3">
@@ -262,19 +314,19 @@ const SincronizacaoPage = () => {
                                   </div>
                                   <div>
                                     <p className="text-muted-foreground uppercase tracking-wider">Inseridos</p>
-                                    <p className="font-semibold">{row.inseridos ?? 0}</p>
+                                    <p className="font-semibold">{safeNumber(row.inseridos)}</p>
                                   </div>
                                   <div>
                                     <p className="text-muted-foreground uppercase tracking-wider">Atualizados</p>
-                                    <p className="font-semibold">{row.atualizados ?? 0}</p>
+                                    <p className="font-semibold">{safeNumber(row.atualizados)}</p>
                                   </div>
                                   <div>
                                     <p className="text-muted-foreground uppercase tracking-wider">Ignorados</p>
-                                    <p className="font-semibold">{row.ignorados ?? 0}</p>
+                                    <p className="font-semibold">{safeNumber(row.ignorados)}</p>
                                   </div>
                                 </div>
                                 {row.mensagem && (
-                                  <p className="text-sm text-muted-foreground italic">{row.mensagem}</p>
+                                  <p className="text-sm text-muted-foreground italic">{safeRender(row.mensagem)}</p>
                                 )}
                                 {errosLista.length > 0 && (
                                   <div>
@@ -284,7 +336,7 @@ const SincronizacaoPage = () => {
                                     <ul className="text-xs space-y-1 list-disc list-inside text-red-800">
                                       {errosLista.map((e, i) => (
                                         <li key={i} className="break-words">
-                                          {renderErro(e)}
+                                          {safeRender(e)}
                                         </li>
                                       ))}
                                     </ul>
@@ -296,7 +348,7 @@ const SincronizacaoPage = () => {
                                       Ver detalhes JSON
                                     </summary>
                                     <pre className="mt-2 p-3 bg-muted/40 rounded-lg overflow-x-auto text-[11px] leading-relaxed">
-                                      {JSON.stringify(detalhes, null, 2)}
+                                      {safeJson(detalhes)}
                                     </pre>
                                   </details>
                                 )}
@@ -315,7 +367,7 @@ const SincronizacaoPage = () => {
             <div className="md:hidden divide-y divide-border">
               {historico.map((row, idx) => {
                 const open = !!expandido[row.id];
-                const processados = (row.inseridos ?? 0) + (row.atualizados ?? 0);
+                const processados = safeNumber(row.inseridos) + safeNumber(row.atualizados);
                 return (
                   <div key={row.id} className={`p-4 ${idx % 2 === 1 ? 'bg-muted/20' : ''}`}>
                     <div className="flex items-start justify-between gap-3 mb-2">
@@ -331,19 +383,19 @@ const SincronizacaoPage = () => {
                       </button>
                     </div>
                     <div className="grid grid-cols-3 gap-2 text-xs">
-                      <div><p className="text-muted-foreground">Lidos</p><p className="font-semibold">{row.lidos ?? 0}</p></div>
+                      <div><p className="text-muted-foreground">Lidos</p><p className="font-semibold">{safeNumber(row.lidos)}</p></div>
                       <div><p className="text-muted-foreground">Processados</p><p className="font-semibold">{processados}</p></div>
-                      <div><p className="text-muted-foreground">Erros</p><p className={`font-semibold ${row.erros && row.erros > 0 ? 'text-red-600' : ''}`}>{row.erros ?? 0}</p></div>
+                      <div><p className="text-muted-foreground">Erros</p><p className={`font-semibold ${safeNumber(row.erros) > 0 ? 'text-red-600' : ''}`}>{safeNumber(row.erros)}</p></div>
                     </div>
                     {open && (
                       <div className="mt-3 pt-3 border-t border-border space-y-2 text-xs">
                         <p><span className="text-muted-foreground">Duração: </span>{formatDuration(row.iniciado_em, row.finalizado_em)}</p>
-                        {row.mensagem && <p className="italic text-muted-foreground">{row.mensagem}</p>}
+                        {row.mensagem && <p className="italic text-muted-foreground">{safeRender(row.mensagem)}</p>}
                         {row.detalhes != null && (
                           <details>
                             <summary className="cursor-pointer text-muted-foreground">Ver detalhes JSON</summary>
                             <pre className="mt-2 p-2 bg-muted/40 rounded overflow-x-auto text-[10px]">
-                              {JSON.stringify(row.detalhes, null, 2)}
+                              {safeJson(row.detalhes)}
                             </pre>
                           </details>
                         )}
@@ -359,5 +411,11 @@ const SincronizacaoPage = () => {
     </div>
   );
 };
+
+const SincronizacaoPage = () => (
+  <SincronizacaoErrorBoundary>
+    <SincronizacaoPageContent />
+  </SincronizacaoErrorBoundary>
+);
 
 export default SincronizacaoPage;
