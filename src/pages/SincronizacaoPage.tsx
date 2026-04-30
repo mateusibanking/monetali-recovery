@@ -367,7 +367,7 @@ const SincronizacaoPageContent = () => {
             <div className="md:hidden divide-y divide-border">
               {historico.map((row, idx) => {
                 const open = !!expandido[row.id];
-                const processados = (row.inseridos ?? 0) + (row.atualizados ?? 0);
+                const processados = safeNumber(row.inseridos) + safeNumber(row.atualizados);
                 return (
                   <div key={row.id} className={`p-4 ${idx % 2 === 1 ? 'bg-muted/20' : ''}`}>
                     <div className="flex items-start justify-between gap-3 mb-2">
@@ -383,19 +383,19 @@ const SincronizacaoPageContent = () => {
                       </button>
                     </div>
                     <div className="grid grid-cols-3 gap-2 text-xs">
-                      <div><p className="text-muted-foreground">Lidos</p><p className="font-semibold">{row.lidos ?? 0}</p></div>
+                      <div><p className="text-muted-foreground">Lidos</p><p className="font-semibold">{safeNumber(row.lidos)}</p></div>
                       <div><p className="text-muted-foreground">Processados</p><p className="font-semibold">{processados}</p></div>
-                      <div><p className="text-muted-foreground">Erros</p><p className={`font-semibold ${row.erros && row.erros > 0 ? 'text-red-600' : ''}`}>{row.erros ?? 0}</p></div>
+                      <div><p className="text-muted-foreground">Erros</p><p className={`font-semibold ${safeNumber(row.erros) > 0 ? 'text-red-600' : ''}`}>{safeNumber(row.erros)}</p></div>
                     </div>
                     {open && (
                       <div className="mt-3 pt-3 border-t border-border space-y-2 text-xs">
                         <p><span className="text-muted-foreground">Duração: </span>{formatDuration(row.iniciado_em, row.finalizado_em)}</p>
-                        {row.mensagem && <p className="italic text-muted-foreground">{row.mensagem}</p>}
+                        {row.mensagem && <p className="italic text-muted-foreground">{safeRender(row.mensagem)}</p>}
                         {row.detalhes != null && (
                           <details>
                             <summary className="cursor-pointer text-muted-foreground">Ver detalhes JSON</summary>
                             <pre className="mt-2 p-2 bg-muted/40 rounded overflow-x-auto text-[10px]">
-                              {JSON.stringify(row.detalhes, null, 2)}
+                              {safeJson(row.detalhes)}
                             </pre>
                           </details>
                         )}
@@ -411,5 +411,11 @@ const SincronizacaoPageContent = () => {
     </div>
   );
 };
+
+const SincronizacaoPage = () => (
+  <SincronizacaoErrorBoundary>
+    <SincronizacaoPageContent />
+  </SincronizacaoErrorBoundary>
+);
 
 export default SincronizacaoPage;
