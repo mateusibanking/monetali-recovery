@@ -17,6 +17,24 @@ function formatDateTime(iso: string | null | undefined): string {
   return `${dd}/${mm}/${yyyy} às ${hh}:${mi}`;
 }
 
+function renderErro(e: unknown): string {
+  if (e == null) return '';
+  if (typeof e === 'string') return e;
+  if (typeof e === 'number' || typeof e === 'boolean') return String(e);
+  if (typeof e === 'object') {
+    const obj = e as Record<string, unknown>;
+    const msg = obj.erro ?? obj.error ?? obj.message ?? obj.msg;
+    if (typeof msg === 'string') {
+      const extras: string[] = [];
+      if (obj.chunk != null) extras.push(`chunk ${String(obj.chunk)}`);
+      if (obj.linha != null) extras.push(`linha ${typeof obj.linha === 'object' ? JSON.stringify(obj.linha) : String(obj.linha)}`);
+      return extras.length ? `${msg} (${extras.join(', ')})` : msg;
+    }
+    try { return JSON.stringify(e); } catch { return String(e); }
+  }
+  return String(e);
+}
+
 function formatDuration(start: string | null, end: string | null): string {
   if (!start || !end) return '—';
   const s = new Date(start).getTime();
@@ -266,7 +284,7 @@ const SincronizacaoPage = () => {
                                     <ul className="text-xs space-y-1 list-disc list-inside text-red-800">
                                       {errosLista.map((e, i) => (
                                         <li key={i} className="break-words">
-                                          {typeof e === 'string' ? e : JSON.stringify(e)}
+                                          {renderErro(e)}
                                         </li>
                                       ))}
                                     </ul>
