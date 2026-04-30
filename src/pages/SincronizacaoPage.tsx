@@ -76,7 +76,7 @@ function formatDuration(start: string | null, end: string | null): string {
 type StatusKind = 'sucesso' | 'parcial' | 'erro' | 'em_andamento' | 'desconhecido';
 
 function classifyStatus(row: Pick<SyncLogRow, 'status' | 'finalizado_em' | 'erros'>): StatusKind {
-  const s = (row.status || '').toLowerCase();
+  const s = safeRender(row.status).toLowerCase();
   const erros = safeNumber(row.erros);
   if (!row.finalizado_em || s === 'em_andamento' || s === 'running' || s === 'iniciado') return 'em_andamento';
   if (s.includes('erro') || s === 'error' || s === 'failed') return 'erro';
