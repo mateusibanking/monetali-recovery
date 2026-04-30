@@ -17,22 +17,43 @@ function formatDateTime(iso: string | null | undefined): string {
   return `${dd}/${mm}/${yyyy} às ${hh}:${mi}`;
 }
 
-function renderErro(e: unknown): string {
-  if (e == null) return '';
-  if (typeof e === 'string') return e;
-  if (typeof e === 'number' || typeof e === 'boolean') return String(e);
-  if (typeof e === 'object') {
-    const obj = e as Record<string, unknown>;
+function safeRender(value: unknown): string {
+  if (value == null) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') return String(value);
+  if (Array.isArray(value)) return value.map(safeRender).filter(Boolean).join(', ');
+  if (typeof value === 'object') {
+    const obj = value as Record<string, unknown>;
     const msg = obj.erro ?? obj.error ?? obj.message ?? obj.msg;
-    if (typeof msg === 'string') {
+    if (msg != null) {
       const extras: string[] = [];
-      if (obj.chunk != null) extras.push(`chunk ${String(obj.chunk)}`);
-      if (obj.linha != null) extras.push(`linha ${typeof obj.linha === 'object' ? JSON.stringify(obj.linha) : String(obj.linha)}`);
-      return extras.length ? `${msg} (${extras.join(', ')})` : msg;
+      if (obj.chunk != null) extras.push(`chunk ${safeRender(obj.chunk)}`);
+      if (obj.linha != null) extras.push(`linha ${safeRender(obj.linha)}`);
+      const base = safeRender(msg);
+      return extras.length ? `${base} (${extras.join(', ')})` : base;
     }
-    try { return JSON.stringify(e); } catch { return String(e); }
+    try { return JSON.stringify(value); } catch { return String(value); }
   }
-  return String(e);
+  return String(value);
+}
+
+function safeNumber(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 0;
+  }
+  return 0;
+}
+
+function getObject(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
+}
+
+function getErrosLista(detalhes: unknown): unknown[] {
+  const obj = getObject(detalhes);
+  const erros = obj?.erros ?? obj?.errors;
+  return Array.isArray(erros) ? erros.slice(0, 10) : [];
 }
 
 function formatDuration(start: string | null, end: string | null): string {
