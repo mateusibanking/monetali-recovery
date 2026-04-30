@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Navigate } from 'react-router-dom';
 import { RefreshCw, ChevronDown, ChevronRight, AlertTriangle, CheckCircle2, XCircle, Loader2, History } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -286,7 +286,7 @@ const SincronizacaoPage = () => {
                             </td>
                           </tr>
                         )}
-                      </>
+                      </React.Fragment>
                     );
                   })}
                 </tbody>
