@@ -182,7 +182,7 @@ const PagamentosUnificados: React.FC<Props> = ({
                 : '';
             return (
               <React.Fragment key={p.id}>
-                <tr className={`border-b border-border/30 hover:bg-secondary/30 transition-colors ${rowBg}`}>
+                <tr id={`pagamento-${p.id}`} className={`border-b border-border/30 hover:bg-secondary/30 transition-colors ${rowBg}`}>
                   <td className="px-2 py-2.5">
                     <button
                       onClick={() => toggle(p.id)}
