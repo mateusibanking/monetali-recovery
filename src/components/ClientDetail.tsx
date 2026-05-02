@@ -14,6 +14,8 @@ import { premissas as staticPremissas, type EmailTemplate } from '@/data/premiss
 import { calcularJurosEMulta } from '@/lib/calculos';
 import { usePagamentos } from '@/hooks/usePagamentos';
 import PagamentosUnificados from '@/components/cliente/PagamentosUnificados';
+import ModalParcelamento from '@/components/cliente/ModalParcelamento';
+import { useParcelamento } from '@/hooks/useParcelamento';
 import { useAtividades } from '@/hooks/useAtividades';
 import { useFlags } from '@/hooks/useFlags';
 import { usePremissas } from '@/hooks/usePremissas';
@@ -123,8 +125,14 @@ const ClientDetail = ({ client, onBack }: Props) => {
   const [showParcelamento, setShowParcelamento] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [showNovoPagamento, setShowNovoPagamento] = useState(false);
-  const [markingPaid, setMarkingPaid] = useState<{ paymentId: string; side: 'vitbank' | 'monetali'; mode: 'mark' | 'edit' } | null>(null);
+  // markingPaid pode atender pagamentos do array OU parcelas filhas (estas vem em targetPayment).
+  const [markingPaid, setMarkingPaid] = useState<{ paymentId: string; side: 'vitbank' | 'monetali'; mode: 'mark' | 'edit'; targetPayment?: Payment } | null>(null);
   const [markPaidForm, setMarkPaidForm] = useState({ data: new Date().toISOString().split('T')[0], valor: 0 });
+  // Modal de parcelamento (Fase 2C — Parte 3)
+  const [parcelandoPayment, setParcelandoPayment] = useState<Payment | null>(null);
+  // Bump pra forçar refresh da sub-tabela de parcelas
+  const [parcelasRefreshKey, setParcelasRefreshKey] = useState(0);
+  const { desfazerParcelamento: desfazerParcelamentoRpc } = useParcelamento();
 
   const allAvailableFlags = [...new Set([...DEFAULT_FLAGS, ...flagsDisponiveis, ...form.flags])];
   const openPayments = payments.filter(p => p.status !== 'Pago');
@@ -246,6 +254,7 @@ const ClientDetail = ({ client, onBack }: Props) => {
     const ok = await updatePaymentDb(p.id, updates);
     if (ok) {
       toast.success(`Pagamento ${side === 'vitbank' ? 'VITBANK' : 'MONETALI'} registrado`);
+      if (markingPaid?.targetPayment) setParcelasRefreshKey(k => k + 1);
     }
     setMarkingPaid(null);
   };
@@ -274,8 +283,24 @@ const ClientDetail = ({ client, onBack }: Props) => {
     const ok = await updatePaymentDb(p.id, updates);
     if (ok) {
       toast.success(`Pagamento ${side === 'vitbank' ? 'VITBANK' : 'MONETALI'} desmarcado`);
+      if (markingPaid?.targetPayment) setParcelasRefreshKey(k => k + 1);
     }
     setMarkingPaid(null);
+  };
+
+  // Handler de desfazer parcelamento (Fase 2C — Parte 6)
+  const handleDesfazerParcelamento = async (paymentId: string) => {
+    const res = await desfazerParcelamentoRpc(paymentId);
+    if (res.sucesso) {
+      await refetchPayments();
+      setParcelasRefreshKey(k => k + 1);
+      await createAtividade({
+        clienteId: client.id,
+        tipo: 'pagamento',
+        descricao: `Parcelamento desfeito (pagamento ${paymentId.slice(0, 8)})`,
+        criadoPor: form.executivo || 'Sistema',
+      });
+    }
   };
 
   const handleDeletePayment = async (p: Payment) => {
@@ -420,6 +445,45 @@ const ClientDetail = ({ client, onBack }: Props) => {
             }}
             onEditPayment={p => setEditingPayment(p)}
             onDeletePayment={p => handleDeletePayment(p)}
+            onParcelar={p => setParcelandoPayment(p)}
+            parcelasRefreshKey={parcelasRefreshKey}
+            onMarkPaidParcela={(parcela, side) => {
+              setMarkingPaid({ paymentId: parcela.id, side, mode: 'mark', targetPayment: parcela });
+              setMarkPaidForm({
+                data: new Date().toISOString().split('T')[0],
+                valor: side === 'vitbank' ? (parcela.vitbank || 0) : (parcela.monetali || 0),
+              });
+            }}
+            onEditPaidParcela={(parcela, side) => {
+              const dataAtual = side === 'vitbank' ? parcela.pgtoVitbank : parcela.pgtoMonetali;
+              const valorAtual = side === 'vitbank'
+                ? (parcela.valorPagoVitbank || parcela.vitbank || 0)
+                : (parcela.valorPagoMonetali || parcela.monetali || 0);
+              setMarkingPaid({ paymentId: parcela.id, side, mode: 'edit', targetPayment: parcela });
+              setMarkPaidForm({
+                data: dataAtual ? new Date(dataAtual).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+                valor: valorAtual,
+              });
+            }}
+            onDesfazerParcelamento={handleDesfazerParcelamento}
+          />
+        )}
+
+        {/* Modal de Parcelamento (Fase 2C — Parte 3) */}
+        {parcelandoPayment && (
+          <ModalParcelamento
+            payment={parcelandoPayment}
+            onClose={() => setParcelandoPayment(null)}
+            onSuccess={async () => {
+              await refetchPayments();
+              setParcelasRefreshKey(k => k + 1);
+              await createAtividade({
+                clienteId: client.id,
+                tipo: 'pagamento',
+                descricao: `Parcelamento criado para pagamento ${parcelandoPayment.descricao || parcelandoPayment.id.slice(0, 8)}`,
+                criadoPor: form.executivo || 'Sistema',
+              });
+            }}
           />
         )}
 
@@ -477,7 +541,8 @@ const ClientDetail = ({ client, onBack }: Props) => {
 
         {/* ═══ Modal: Registrar Pagamento VitBank / Monetali ═══ */}
         {markingPaid && (() => {
-          const targetPayment = payments.find(p => p.id === markingPaid.paymentId);
+          // Pra parcela filha (não está em payments[]) usa targetPayment direto.
+          const targetPayment = markingPaid.targetPayment ?? payments.find(p => p.id === markingPaid.paymentId);
           if (!targetPayment) return null;
           const side = markingPaid.side;
           const sideLabel = side === 'vitbank' ? 'VITBANK' : 'MONETALI';

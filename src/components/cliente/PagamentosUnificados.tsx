@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronDown, ChevronRight, CheckCircle2, Edit2, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, CheckCircle2, Edit2, Trash2, Layers } from 'lucide-react';
 import type { Payment, PaymentStatus } from '@/data/mockData';
 import { calcularJurosEMulta } from '@/lib/calculos';
+import SubTabelaParcelas from './SubTabelaParcelas';
 
 interface Premissas {
   taxaJurosDia: number;
@@ -15,6 +16,11 @@ interface Props {
   onEditPaid: (paymentId: string, side: 'vitbank' | 'monetali') => void;
   onEditPayment: (payment: Payment) => void;
   onDeletePayment: (payment: Payment) => void;
+  onParcelar?: (payment: Payment) => void;
+  onMarkPaidParcela?: (parcela: Payment, side: 'vitbank' | 'monetali') => void;
+  onEditPaidParcela?: (parcela: Payment, side: 'vitbank' | 'monetali') => void;
+  onDesfazerParcelamento?: (paymentId: string) => void;
+  parcelasRefreshKey?: number;
   loading?: boolean;
   emptyMessage?: string;
 }
@@ -111,6 +117,8 @@ function valorCorrigidoColor(lado: LadoCalc): string {
   return 'text-muted-foreground';
 }
 
+const STATUS_NAO_PARCELAVEL: PaymentStatus[] = ['Pago', 'Parcelado', 'Vencido'];
+
 const PagamentosUnificados: React.FC<Props> = ({
   payments,
   premissas,
@@ -118,6 +126,11 @@ const PagamentosUnificados: React.FC<Props> = ({
   onEditPaid,
   onEditPayment,
   onDeletePayment,
+  onParcelar,
+  onMarkPaidParcela,
+  onEditPaidParcela,
+  onDesfazerParcelamento,
+  parcelasRefreshKey,
   loading,
   emptyMessage = 'Nenhum pagamento registrado.',
 }) => {
@@ -161,6 +174,7 @@ const PagamentosUnificados: React.FC<Props> = ({
           {linhas.map(({ p, vb, mon, totalGeral }) => {
             const open = !!expanded[p.id];
             const isParcelado = p.status === 'Parcelado';
+            const podeParcelar = !STATUS_NAO_PARCELAVEL.includes(p.status);
             const rowBg = vb.pago && mon.pago
               ? 'bg-emerald-50/30'
               : (vb.encargos > 0 || mon.encargos > 0)
@@ -240,6 +254,16 @@ const PagamentosUnificados: React.FC<Props> = ({
                         />
                       </div>
 
+                      {isParcelado && onMarkPaidParcela && onEditPaidParcela && onDesfazerParcelamento && (
+                        <SubTabelaParcelas
+                          paymentId={p.id}
+                          refreshKey={parcelasRefreshKey}
+                          onMarkPaidParcela={onMarkPaidParcela}
+                          onEditPaidParcela={onEditPaidParcela}
+                          onDesfazerParcelamento={onDesfazerParcelamento}
+                        />
+                      )}
+
                       <div className="mt-3 flex flex-col md:flex-row md:items-center md:justify-between gap-2 pt-3 border-t border-border/40">
                         <div className="text-sm">
                           <span className="text-muted-foreground">Total Geral: </span>
@@ -250,7 +274,7 @@ const PagamentosUnificados: React.FC<Props> = ({
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <button
                             onClick={() => onEditPayment(p)}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
@@ -258,6 +282,15 @@ const PagamentosUnificados: React.FC<Props> = ({
                           >
                             <Edit2 className="h-3.5 w-3.5" /> Editar pagamento
                           </button>
+                          {podeParcelar && onParcelar && (
+                            <button
+                              onClick={() => onParcelar(p)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-violet-300 text-violet-700 hover:bg-violet-50 transition-colors font-medium"
+                              title="Lançar parcelamento"
+                            >
+                              <Layers className="h-3.5 w-3.5" /> Lançar Parcelamento
+                            </button>
+                          )}
                           <button
                             onClick={() => onDeletePayment(p)}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-border text-muted-foreground hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-colors"
