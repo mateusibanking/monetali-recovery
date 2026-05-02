@@ -29,6 +29,14 @@ export interface DbCliente {
   status: string;
   valor_inadimplente_total: number;
   valor_recuperado_total: number;
+  // Campos calculados em tempo real pela view v_clientes_com_calculos
+  // (via função SQL calcular_inadimplencia_cliente). Opcionais porque
+  // INSERT/UPDATE da tabela base não retorna estes campos.
+  compensacao_total?: number;
+  inadimplente_vitbank?: number;
+  inadimplente_monetali?: number;
+  inadimplente_total?: number;
+  recuperado_total?: number;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -169,8 +177,6 @@ export function mapDbClienteToClient(
   row: DbCliente,
   flags: string[] = [],
   mesReferencia: string = new Date().toISOString().slice(0, 7),
-  boletoVitbank: number = 0,
-  pixMonetali: number = 0,
 ): Client {
   return {
     id: row.id,
@@ -178,17 +184,19 @@ export function mapDbClienteToClient(
     cnpj: row.cnpj || '',
     regional: row.regional || '',
     executivo: row.executivo_responsavel || '',
-    compensacao: Number(row.valor_total_atraso) || 0,
+    // Os 5 campos calculados vêm da view v_clientes_com_calculos.
+    // Fallback para os campos antigos do `clientes` se a row vier de INSERT/UPDATE direto.
+    compensacao: Number(row.compensacao_total ?? row.valor_total_atraso) || 0,
     juros: Number(row.juros_total) || 0,
-    boletoVitbank,
-    pixMonetali,
+    boletoVitbank: Number(row.inadimplente_vitbank) || 0,
+    pixMonetali: Number(row.inadimplente_monetali) || 0,
     diasAtraso: row.dias_atraso_max || 0,
     parcelas: row.qtd_pagamentos_atraso || 0,
     situacao: dbStatusToSituacao[row.status] || 'NÃO INICIADO',
     flags,
     mes_referencia: mesReferencia,
-    valorInadimplente: Number(row.valor_inadimplente_total) || 0,
-    valorRecuperado: Number(row.valor_recuperado_total) || 0,
+    valorInadimplente: Number(row.inadimplente_total ?? row.valor_inadimplente_total) || 0,
+    valorRecuperado: Number(row.recuperado_total ?? row.valor_recuperado_total) || 0,
   };
 }
 
