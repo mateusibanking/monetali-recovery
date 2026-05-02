@@ -34,6 +34,13 @@ interface ViewRow {
   qtd_em_aberto: number | null;
 }
 
+// Compensação real vinda da view v_clientes_com_calculos (SUM(valor_compensacao)).
+// total_vitbank + total_monetali da view antiga clientes_com_totais NÃO bate com
+// a Compensação Total exibida na lista (que lê v_clientes_com_calculos.compensacao_total).
+interface CompRow {
+  compensacao_total: number | null;
+}
+
 const EMPTY_EMPRESA: EncargosEmpresa = {
   principal: 0,
   totalEncargos: 0,
@@ -45,6 +52,7 @@ const round2 = (v: number) => Math.round(v * 100) / 100;
 
 export function useClienteEncargos(clienteId: string): ClienteEncargosData {
   const [row, setRow] = useState<ViewRow | null>(null);
+  const [compRow, setCompRow] = useState<CompRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,15 +61,24 @@ export function useClienteEncargos(clienteId: string): ClienteEncargosData {
     try {
       setLoading(true);
       setError(null);
-      const { data, error: err } = await supabase
-        .from('clientes_com_totais')
-        .select(
-          'total_vitbank, total_monetali, inadimplente_vitbank, inadimplente_monetali, recuperado_vitbank, recuperado_monetali, encargos_vitbank, encargos_monetali, qtd_em_aberto'
-        )
-        .eq('id', clienteId)
-        .maybeSingle();
-      if (err) throw err;
-      setRow(data as ViewRow | null);
+      const [encargosRes, compRes] = await Promise.all([
+        supabase
+          .from('clientes_com_totais')
+          .select(
+            'total_vitbank, total_monetali, inadimplente_vitbank, inadimplente_monetali, recuperado_vitbank, recuperado_monetali, encargos_vitbank, encargos_monetali, qtd_em_aberto'
+          )
+          .eq('id', clienteId)
+          .maybeSingle(),
+        supabase
+          .from('v_clientes_com_calculos')
+          .select('compensacao_total')
+          .eq('id', clienteId)
+          .maybeSingle(),
+      ]);
+      if (encargosRes.error) throw encargosRes.error;
+      // compRes.error não é fatal — fallback pra cálculo antigo no derived
+      setRow(encargosRes.data as ViewRow | null);
+      setCompRow((compRes.data as CompRow | null) ?? null);
     } catch (e) {
       const err = e as Error;
       setError(err.message || 'Erro ao carregar encargos');
@@ -104,7 +121,15 @@ export function useClienteEncargos(clienteId: string): ClienteEncargosData {
     const percVb = totalGeral > 0 ? round2((totalComEncargosVb / totalGeral) * 100) : 0;
     const percMn = totalGeral > 0 ? round2((totalComEncargosMn / totalGeral) * 100) : 0;
 
-    const compensacaoTotal = totalVb + totalMn;
+    // Fonte de verdade da Compensação Total: v_clientes_com_calculos.compensacao_total
+    // (mesmo campo usado na lista de clientes). Fallback para o cálculo antigo se a
+    // chamada da nova view falhou ou retornou null.
+    // Fonte de verdade da Compensação Total: v_clientes_com_calculos.compensacao_total
+    // (mesmo campo usado na lista de clientes). Fallback para o cálculo antigo se a
+    // chamada da nova view falhou ou retornou null.
+    const compensacaoTotal = (compRow?.compensacao_total != null)
+      ? Number(compRow.compensacao_total)
+      : (totalVb + totalMn);
     const inadimplente = principalVb + principalMn;
     const recuperado = recuperadoVb + recuperadoMn;
     // % recuperado = recuperado / (recuperado + inadimplente)
@@ -131,7 +156,7 @@ export function useClienteEncargos(clienteId: string): ClienteEncargosData {
       percentualRecuperado,
       qtdEmAberto: Number(row.qtd_em_aberto) || 0,
     };
-  }, [row]);
+  }, [row, compRow]);
 
   return {
     ...derived,
