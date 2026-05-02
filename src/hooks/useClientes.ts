@@ -32,12 +32,12 @@ export function useClientes(filters?: UseClientesFilters): UseClientesReturn {
       setLoading(true);
       setError(null);
 
-      // Build query
+      // Build query — usar view com 5 campos calculados
       let query = supabase
-        .from('clientes')
+        .from('v_clientes_com_calculos')
         .select('*')
         .is('deleted_at', null)
-        .order('valor_total_atraso', { ascending: false });
+        .order('inadimplente_total', { ascending: false });
 
       if (filters?.status) {
         const dbStatus = situacaoToDbStatus[filters.status];
@@ -75,26 +75,10 @@ export function useClientes(filters?: UseClientesFilters): UseClientesReturn {
         }
       }
 
-      // Fetch vitbank/monetali aggregates from pagamentos_atraso
-      let vitbankMap: Record<string, number> = {};
-      let monetaliMap: Record<string, number> = {};
-      if (clienteIds.length > 0) {
-        const { data: pagSums } = await supabase
-          .from('pagamentos_atraso')
-          .select('cliente_id, vitbank, monetali')
-          .in('cliente_id', clienteIds)
-          .is('deleted_at', null);
-
-        if (pagSums) {
-          (pagSums as { cliente_id: string; vitbank: number | null; monetali: number | null }[]).forEach(p => {
-            vitbankMap[p.cliente_id] = (vitbankMap[p.cliente_id] || 0) + (Number(p.vitbank) || 0);
-            monetaliMap[p.cliente_id] = (monetaliMap[p.cliente_id] || 0) + (Number(p.monetali) || 0);
-          });
-        }
-      }
+      // Os campos VB/Mon agora vêm da view (inadimplente_vitbank/monetali) — não precisa fetch extra.
 
       const mapped = (clientes as DbCliente[]).map(c =>
-        mapDbClienteToClient(c, flagsMap[c.id] || [], undefined, vitbankMap[c.id] || 0, monetaliMap[c.id] || 0)
+        mapDbClienteToClient(c, flagsMap[c.id] || [])
       );
 
       setData(mapped);
@@ -113,7 +97,7 @@ export function useClientes(filters?: UseClientesFilters): UseClientesReturn {
   const getById = async (id: string): Promise<Client | null> => {
     try {
       const { data: row, error: err } = await supabase
-        .from('clientes')
+        .from('v_clientes_com_calculos')
         .select('*')
         .eq('id', id)
         .is('deleted_at', null)
@@ -128,17 +112,8 @@ export function useClientes(filters?: UseClientesFilters): UseClientesReturn {
 
       const flagNames = (flags || []).map((f: any) => f.nome_flag);
 
-      // Aggregate vitbank/monetali for this client
-      const { data: pagSums } = await supabase
-        .from('pagamentos_atraso')
-        .select('vitbank, monetali')
-        .eq('cliente_id', id)
-        .is('deleted_at', null);
-
-      const vitbankTotal = (pagSums || []).reduce((s: number, p: any) => s + (Number(p.vitbank) || 0), 0);
-      const monetaliTotal = (pagSums || []).reduce((s: number, p: any) => s + (Number(p.monetali) || 0), 0);
-
-      return mapDbClienteToClient(row as DbCliente, flagNames, undefined, vitbankTotal, monetaliTotal);
+      // VB/Mon vêm da view (inadimplente_vitbank/monetali) — não precisa fetch extra.
+      return mapDbClienteToClient(row as DbCliente, flagNames);
     } catch (err: any) {
       console.error('useClientes getById error:', err);
       return null;
