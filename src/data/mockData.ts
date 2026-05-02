@@ -14,7 +14,7 @@ export type Situacao =
 
 export type Flag = 'Prioridade' | 'Juros' | 'Sem Contato' | 'Jurídico' | 'Parcelamento' | 'Promessa de Pgto' | string;
 
-export type PaymentStatus = 'Pendente' | 'Pago' | 'Parcial' | 'Vencido';
+export type PaymentStatus = 'Pendente' | 'Pago' | 'Parcial' | 'Vencido' | 'Parcelado';
 
 export interface Payment {
   id: string;

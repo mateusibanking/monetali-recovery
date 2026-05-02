@@ -152,6 +152,7 @@ const dbPaymentStatusToFrontend: Record<string, PaymentStatus> = {
   'parcial': 'Parcial',
   'pago': 'Pago',
   'cancelado': 'Vencido',
+  'parcelado': 'Parcelado',
 };
 
 const frontendPaymentStatusToDb: Record<PaymentStatus, string> = {
@@ -159,6 +160,7 @@ const frontendPaymentStatusToDb: Record<PaymentStatus, string> = {
   'Parcial': 'parcial',
   'Pago': 'pago',
   'Vencido': 'cancelado',
+  'Parcelado': 'parcelado',
 };
 
 // ---- Mappers ----

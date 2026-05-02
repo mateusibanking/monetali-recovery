@@ -21,10 +21,10 @@ export interface SyncLogRow {
   iniciado_em: string;
   finalizado_em: string | null;
   status: string | null;
-  lidos: number | null;
-  inseridos: number | null;
-  atualizados: number | null;
-  ignorados: number | null;
+  registros_lidos: number | null;
+  registros_inseridos: number | null;
+  registros_atualizados: number | null;
+  registros_ignorados: number | null;
   erros: number | null;
   mensagem: string | null;
   detalhes: unknown;

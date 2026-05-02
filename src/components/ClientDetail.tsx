@@ -13,6 +13,7 @@ import {
 import { premissas as staticPremissas, type EmailTemplate } from '@/data/premissas';
 import { calcularJurosEMulta } from '@/lib/calculos';
 import { usePagamentos } from '@/hooks/usePagamentos';
+import PagamentosUnificados from '@/components/cliente/PagamentosUnificados';
 import { useAtividades } from '@/hooks/useAtividades';
 import { useFlags } from '@/hooks/useFlags';
 import { usePremissas } from '@/hooks/usePremissas';
@@ -118,12 +119,11 @@ const ClientDetail = ({ client, onBack }: Props) => {
   });
   const [saved, setSaved] = useState(false);
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
-  const [expandedJurosId, setExpandedJurosId] = useState<string | null>(null);
   const [newFlagInput, setNewFlagInput] = useState('');
   const [showParcelamento, setShowParcelamento] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [showNovoPagamento, setShowNovoPagamento] = useState(false);
-  const [markingPaid, setMarkingPaid] = useState<{ paymentId: string; side: 'vitbank' | 'monetali' } | null>(null);
+  const [markingPaid, setMarkingPaid] = useState<{ paymentId: string; side: 'vitbank' | 'monetali'; mode: 'mark' | 'edit' } | null>(null);
   const [markPaidForm, setMarkPaidForm] = useState({ data: new Date().toISOString().split('T')[0], valor: 0 });
 
   const allAvailableFlags = [...new Set([...DEFAULT_FLAGS, ...flagsDisponiveis, ...form.flags])];
@@ -131,8 +131,6 @@ const ClientDetail = ({ client, onBack }: Props) => {
   const openTotal = openPayments.reduce((s, p) => s + p.valor, 0);
 
   // Aggregate totals from payment breakdown
-  const totalVitbank = payments.reduce((s, p) => s + (p.vitbank || 0), 0);
-  const totalMonetali = payments.reduce((s, p) => s + (p.monetali || 0), 0);
 
   // Computed juros totals (by side), calculated on-the-fly from premissas + vencimentos
   // Agrega separadamente juros (por dia) e multa (fixa) por lado pra exibição e tooltip.
@@ -153,8 +151,6 @@ const ClientDetail = ({ client, onBack }: Props) => {
   const totalJurosVitbank = round2(jurosTotals.vitbank);
   const totalJurosMonetali = round2(jurosTotals.monetali);
   const totalJuros = round2(totalJurosVitbank + totalJurosMonetali);
-  const totalJurosOnly = round2(jurosTotals.jurosVb + jurosTotals.jurosMon);
-  const totalMultaOnly = round2(jurosTotals.multaVb + jurosTotals.multaMon);
 
   // Valor atualizado (compensação + encargos reais calculados por pagamento)
   const valorAtualizado = round2(form.compensacao + totalJuros);
@@ -250,6 +246,34 @@ const ClientDetail = ({ client, onBack }: Props) => {
     const ok = await updatePaymentDb(p.id, updates);
     if (ok) {
       toast.success(`Pagamento ${side === 'vitbank' ? 'VITBANK' : 'MONETALI'} registrado`);
+    }
+    setMarkingPaid(null);
+  };
+
+  const handleUnmarkPaid = async (p: Payment, side: 'vitbank' | 'monetali') => {
+    if (!window.confirm('Tem certeza que deseja desmarcar este pagamento como pago?')) return;
+    const updates: Partial<Payment> = {};
+    if (side === 'vitbank') {
+      updates.pgtoVitbank = null;
+      updates.valorPagoVitbank = 0;
+    } else {
+      updates.pgtoMonetali = null;
+      updates.valorPagoMonetali = 0;
+    }
+    const newPgtoVb = side === 'vitbank' ? null : p.pgtoVitbank;
+    const newPgtoMon = side === 'monetali' ? null : p.pgtoMonetali;
+    if (newPgtoVb && newPgtoMon) {
+      updates.status = 'Pago';
+    } else if (newPgtoVb || newPgtoMon) {
+      updates.status = 'Parcial';
+    } else {
+      updates.status = 'Pendente';
+      updates.dataPagamento = null;
+    }
+
+    const ok = await updatePaymentDb(p.id, updates);
+    if (ok) {
+      toast.success(`Pagamento ${side === 'vitbank' ? 'VITBANK' : 'MONETALI'} desmarcado`);
     }
     setMarkingPaid(null);
   };
@@ -370,189 +394,33 @@ const ClientDetail = ({ client, onBack }: Props) => {
         ) : payments.length === 0 ? (
           <div className="py-8 text-center text-muted-foreground text-sm">Nenhum pagamento registrado.</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-border/50 text-left bg-secondary/20">
-                  <th className="px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
-                  <th className="px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider">Mês Ref.</th>
-                  <th className="px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-right">Compensação</th>
-                  <th className="px-3 py-2 font-semibold text-blue-600 uppercase tracking-wider text-right">VITBANK</th>
-                  <th className="px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-right hidden lg:table-cell">Vcto</th>
-                  <th className="px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-right">Pago</th>
-                  <th className="px-3 py-2 font-semibold text-emerald-600 uppercase tracking-wider text-right">MONETALI</th>
-                  <th className="px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-right hidden lg:table-cell">Vcto</th>
-                  <th className="px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider text-right">Pago</th>
-                  <th className="px-3 py-2 font-semibold text-negotiation uppercase tracking-wider text-right">Juros</th>
-                  <th className="px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {payments.map(p => {
-                  const fmtDate = (d: string | null | undefined) =>
-                    d ? new Date(d).toLocaleDateString('pt-BR') : '—';
-                  const bd = computeJurosBreakdown(p);
-                  return (
-                    <tr key={p.id} className={`border-b border-border/30 hover:bg-secondary/30 transition-colors ${p.isInadimplente ? 'bg-red-50/30' : 'bg-green-50/30'}`}>
-                      <td className="px-3 py-2.5">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                          p.isInadimplente
-                            ? 'bg-red-100 text-red-700 border border-red-200'
-                            : 'bg-green-100 text-green-700 border border-green-200'
-                        }`}>
-                          {p.isInadimplente ? 'Inadimplente' : 'Quitado'}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2.5 font-mono text-muted-foreground whitespace-nowrap">
-                        {p.mesReferencia || fmtDate(p.dataVencimento)}
-                      </td>
-                      <td className="px-3 py-2.5 font-mono font-semibold text-right">
-                        {formatCurrency(p.valorCompensacao || p.valor || 0)}
-                      </td>
-                      <td className="px-3 py-2.5 font-mono font-semibold text-right text-partial">
-                        {(p.vitbank || 0) > 0 ? formatCurrency(p.vitbank!) : <span className="text-muted-foreground">—</span>}
-                      </td>
-                      <td className="px-3 py-2.5 font-mono text-muted-foreground text-right hidden lg:table-cell whitespace-nowrap">
-                        {fmtDate(p.vctoVitbank)}
-                      </td>
-                      <td className="px-3 py-2.5 text-center">
-                        {p.pgtoVitbank ? (
-                          <div className="flex items-center justify-center gap-1">
-                            <span className="text-recovered">✓</span>
-                            <span className="text-[10px] text-muted-foreground">{fmtDate(p.pgtoVitbank)}</span>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => {
-                              setMarkingPaid({ paymentId: p.id, side: 'vitbank' });
-                              setMarkPaidForm({ data: new Date().toISOString().split('T')[0], valor: p.vitbank || 0 });
-                            }}
-                            className="text-overdue hover:text-overdue/80 transition-colors"
-                            title="Marcar como pago"
-                          >
-                            ✕
-                          </button>
-                        )}
-                      </td>
-                      <td className="px-3 py-2.5 font-mono font-semibold text-right text-recovered">
-                        {(p.monetali || 0) > 0 ? formatCurrency(p.monetali!) : <span className="text-muted-foreground">—</span>}
-                      </td>
-                      <td className="px-3 py-2.5 font-mono text-muted-foreground text-right hidden lg:table-cell whitespace-nowrap">
-                        {fmtDate(p.vctoMonetali)}
-                      </td>
-                      <td className="px-3 py-2.5 text-center">
-                        {p.pgtoMonetali ? (
-                          <div className="flex items-center justify-center gap-1">
-                            <span className="text-recovered">✓</span>
-                            <span className="text-[10px] text-muted-foreground">{fmtDate(p.pgtoMonetali)}</span>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => {
-                              setMarkingPaid({ paymentId: p.id, side: 'monetali' });
-                              setMarkPaidForm({ data: new Date().toISOString().split('T')[0], valor: p.monetali || 0 });
-                            }}
-                            className="text-overdue hover:text-overdue/80 transition-colors"
-                            title="Marcar como pago"
-                          >
-                            ✕
-                          </button>
-                        )}
-                      </td>
-                      <td className="px-3 py-2.5 font-mono text-right text-negotiation relative">
-                        {bd.total > 0 ? (
-                          <button
-                            onClick={() => setExpandedJurosId(expandedJurosId === p.id ? null : p.id)}
-                            className="hover:underline cursor-pointer font-semibold"
-                            title="Clique para ver o breakdown"
-                          >
-                            {formatCurrency(bd.total)}
-                          </button>
-                        ) : <span className="text-muted-foreground">—</span>}
-                        {expandedJurosId === p.id && (
-                          <div className="absolute right-0 top-full mt-1 z-30 bg-card border border-border rounded-lg shadow-lg p-3 text-left whitespace-nowrap min-w-[300px]">
-                            <p className="text-[11px] font-semibold text-foreground mb-2">
-                              Encargos totais: {formatCurrency(bd.total)}
-                            </p>
-                            <div className="space-y-2 text-[10px]">
-                              {bd.baseVb > 0 && !bd.vbPaid && (
-                                <div className="border-l-2 border-partial/40 pl-2">
-                                  <p className="text-partial font-semibold mb-0.5">
-                                    VITBANK · {formatCurrency(bd.baseVb)} · {bd.diasVb}d
-                                  </p>
-                                  <p className="text-muted-foreground">
-                                    Juros: <span className="text-foreground font-mono">{formatCurrency(bd.jurosVb)}</span>
-                                    <span className="text-[9px] ml-1">({bd.diasVb}d × {dbPremissas.taxaJurosDia}%/dia)</span>
-                                  </p>
-                                  <p className="text-muted-foreground">
-                                    Multa: <span className="text-foreground font-mono">{formatCurrency(bd.multaVb)}</span>
-                                    <span className="text-[9px] ml-1">({dbPremissas.multaAtraso}% — 1x)</span>
-                                  </p>
-                                  <p className="text-foreground font-semibold">
-                                    Subtotal: {formatCurrency(bd.totalVitbank)}
-                                  </p>
-                                </div>
-                              )}
-                              {bd.baseMon > 0 && !bd.monPaid && (
-                                <div className="border-l-2 border-recovered/40 pl-2">
-                                  <p className="text-recovered font-semibold mb-0.5">
-                                    MONETALI · {formatCurrency(bd.baseMon)} · {bd.diasMon}d
-                                  </p>
-                                  <p className="text-muted-foreground">
-                                    Juros: <span className="text-foreground font-mono">{formatCurrency(bd.jurosMon)}</span>
-                                    <span className="text-[9px] ml-1">({bd.diasMon}d × {dbPremissas.taxaJurosDia}%/dia)</span>
-                                  </p>
-                                  <p className="text-muted-foreground">
-                                    Multa: <span className="text-foreground font-mono">{formatCurrency(bd.multaMon)}</span>
-                                    <span className="text-[9px] ml-1">({dbPremissas.multaAtraso}% — 1x)</span>
-                                  </p>
-                                  <p className="text-foreground font-semibold">
-                                    Subtotal: {formatCurrency(bd.totalMonetali)}
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-                            <p className="text-[9px] text-muted-foreground mt-2 pt-1.5 border-t border-border/40">
-                              Multa é cobrada 1x (fixa). Juros crescem por dia.
-                            </p>
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-3 py-2.5 flex items-center gap-2">
-                        <button onClick={() => setEditingPayment(p)} className="text-muted-foreground hover:text-primary transition-colors" title="Editar">
-                          <Edit2 className="h-3.5 w-3.5" />
-                        </button>
-                        <button onClick={() => handleDeletePayment(p)} className="text-muted-foreground hover:text-overdue transition-colors" title="Excluir">
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-              <tfoot>
-                <tr className="border-t-2 border-border bg-secondary/40 text-[11px]">
-                  <td className="px-3 py-2 font-semibold text-muted-foreground uppercase tracking-wider" colSpan={3}>
-                    Totais
-                  </td>
-                  <td className="px-3 py-2 font-mono font-bold text-right text-partial">
-                    {formatCurrency(totalVitbank)}
-                  </td>
-                  <td className="px-3 py-2 hidden lg:table-cell"></td>
-                  <td className="px-3 py-2"></td>
-                  <td className="px-3 py-2 font-mono font-bold text-right text-recovered">
-                    {formatCurrency(totalMonetali)}
-                  </td>
-                  <td className="px-3 py-2 hidden lg:table-cell"></td>
-                  <td className="px-3 py-2"></td>
-                  <td className="px-3 py-2 font-mono font-bold text-right text-negotiation">
-                    {totalJuros > 0 ? formatCurrency(totalJuros) : '—'}
-                  </td>
-                  <td className="px-3 py-2"></td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
+          <PagamentosUnificados
+            payments={payments}
+            premissas={{ taxaJurosDia: dbPremissas.taxaJurosDia, multaAtraso: dbPremissas.multaAtraso }}
+            loading={loadingPay}
+            onMarkPaid={(paymentId, side) => {
+              const target = payments.find(p => p.id === paymentId);
+              if (!target) return;
+              setMarkingPaid({ paymentId, side, mode: 'mark' });
+              setMarkPaidForm({
+                data: new Date().toISOString().split('T')[0],
+                valor: side === 'vitbank' ? (target.vitbank || 0) : (target.monetali || 0),
+              });
+            }}
+            onEditPaid={(paymentId, side) => {
+              const target = payments.find(p => p.id === paymentId);
+              if (!target) return;
+              const dataAtual = side === 'vitbank' ? target.pgtoVitbank : target.pgtoMonetali;
+              const valorAtual = side === 'vitbank' ? (target.valorPagoVitbank || target.vitbank || 0) : (target.valorPagoMonetali || target.monetali || 0);
+              setMarkingPaid({ paymentId, side, mode: 'edit' });
+              setMarkPaidForm({
+                data: dataAtual ? new Date(dataAtual).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+                valor: valorAtual,
+              });
+            }}
+            onEditPayment={p => setEditingPayment(p)}
+            onDeletePayment={p => handleDeletePayment(p)}
+          />
         )}
 
         {editingPayment && (
@@ -626,7 +494,7 @@ const ClientDetail = ({ client, onBack }: Props) => {
               >
                 <div className="flex items-start justify-between mb-5">
                   <h3 className="text-lg font-semibold font-display">
-                    Registrar Pagamento {sideLabel}
+                    {markingPaid.mode === 'edit' ? 'Editar Pagamento' : 'Registrar Pagamento'} {sideLabel}
                   </h3>
                   <button
                     type="button"
@@ -695,21 +563,32 @@ const ClientDetail = ({ client, onBack }: Props) => {
                 </div>
 
                 {/* Botões */}
-                <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/50">
-                  <button
-                    type="button"
-                    onClick={() => setMarkingPaid(null)}
-                    className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleMarkPaid(targetPayment, side)}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
-                  >
-                    Confirmar Pagamento
-                  </button>
+                <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/50">
+                  {markingPaid.mode === 'edit' ? (
+                    <button
+                      type="button"
+                      onClick={() => handleUnmarkPaid(targetPayment, side)}
+                      className="px-3 py-2 text-xs rounded-lg border border-red-200 text-red-700 hover:bg-red-50 transition-colors"
+                    >
+                      Desmarcar como pago
+                    </button>
+                  ) : <span />}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setMarkingPaid(null)}
+                      className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleMarkPaid(targetPayment, side)}
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
+                    >
+                      {markingPaid.mode === 'edit' ? 'Salvar Alterações' : 'Confirmar Pagamento'}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
