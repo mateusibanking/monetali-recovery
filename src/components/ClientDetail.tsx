@@ -133,6 +133,24 @@ const ClientDetail = ({ client, onBack }: Props) => {
   // Bump pra forçar refresh da sub-tabela de parcelas
   const [parcelasRefreshKey, setParcelasRefreshKey] = useState(0);
   const { desfazerParcelamento: desfazerParcelamentoRpc } = useParcelamento();
+  // Deeplink: se a URL tem #pagamento-XXX, rola até a linha e destaca por 3s (Fase 3A)
+  useEffect(() => {
+    const hash = typeof window !== 'undefined' ? window.location.hash : '';
+    if (!hash.startsWith('#pagamento-')) return;
+    if (loadingPay) return;
+    const id = hash.slice('#pagamento-'.length);
+    const t = setTimeout(() => {
+      const el = document.getElementById(`pagamento-${id}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const cls = ['ring-2', 'ring-primary', 'ring-offset-2', 'ring-offset-background'];
+        el.classList.add(...cls);
+        setTimeout(() => el.classList.remove(...cls), 3000);
+      }
+    }, 500);
+    return () => clearTimeout(t);
+  }, [loadingPay, payments]);
+
 
   const allAvailableFlags = [...new Set([...DEFAULT_FLAGS, ...flagsDisponiveis, ...form.flags])];
   const openPayments = payments.filter(p => p.status !== 'Pago');
