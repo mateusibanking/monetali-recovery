@@ -12,6 +12,7 @@ import {
 } from '@/data/mockData';
 import { premissas as staticPremissas, type EmailTemplate } from '@/data/premissas';
 import { calcularJurosEMulta } from '@/lib/calculos';
+import { useFeriados } from '@/hooks/useFeriados';
 import { usePagamentos } from '@/hooks/usePagamentos';
 import PagamentosUnificados from '@/components/cliente/PagamentosUnificados';
 import ModalParcelamento from '@/components/cliente/ModalParcelamento';
@@ -60,6 +61,7 @@ const ClientDetail = ({ client, onBack }: Props) => {
   const { timeline, loading: loadingTimeline, create: createAtividade } = useAtividades(client.id);
   const { flagsDisponiveis, addFlag: addFlagDb, removeFlag: removeFlagDb } = useFlags(client.id);
   const { data: dbPremissas } = usePremissas();
+  const { feriados } = useFeriados();
 
   /** Compute juros breakdown for a single payment (real-time from premissas + dates).
    *  Skips the VitBank or Monetali side if already paid (pgto_vitbank / pgto_monetali set).
@@ -74,13 +76,13 @@ const ClientDetail = ({ client, onBack }: Props) => {
     const vb = p.vitbank || 0;
     const vbPaid = !!p.pgtoVitbank;
     const rVb = vb > 0 && p.vctoVitbank && !vbPaid
-      ? calcularJurosEMulta(vb, p.vctoVitbank, taxa, multaPct)
+      ? calcularJurosEMulta(vb, p.vctoVitbank, taxa, multaPct, undefined, feriados ?? undefined)
       : { juros: 0, multa: 0, total: 0, dias: 0 };
 
     const mon = p.monetali || 0;
     const monPaid = !!p.pgtoMonetali;
     const rMon = mon > 0 && p.vctoMonetali && !monPaid
-      ? calcularJurosEMulta(mon, p.vctoMonetali, taxa, multaPct)
+      ? calcularJurosEMulta(mon, p.vctoMonetali, taxa, multaPct, undefined, feriados ?? undefined)
       : { juros: 0, multa: 0, total: 0, dias: 0 };
 
     const round2 = (v: number) => Math.round(v * 100) / 100;
@@ -440,6 +442,7 @@ const ClientDetail = ({ client, onBack }: Props) => {
           <PagamentosUnificados
             payments={payments}
             premissas={{ taxaJurosDia: dbPremissas.taxaJurosDia, multaAtraso: dbPremissas.multaAtraso }}
+            feriados={feriados ?? undefined}
             loading={loadingPay}
             onMarkPaid={(paymentId, side) => {
               const target = payments.find(p => p.id === paymentId);

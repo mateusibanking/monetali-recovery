@@ -21,6 +21,7 @@ interface Props {
   onEditPaidParcela?: (parcela: Payment, side: 'vitbank' | 'monetali') => void;
   onDesfazerParcelamento?: (paymentId: string) => void;
   parcelasRefreshKey?: number;
+  feriados?: Set<string>;
   loading?: boolean;
   emptyMessage?: string;
 }
@@ -68,6 +69,7 @@ function calcularLado(
   pagamento: string | null | undefined,
   taxaJurosDia: number,
   multaAtraso: number,
+  feriados?: Set<string>,
 ): LadoCalc {
   const base = valor || 0;
   const pago = !!pagamento;
@@ -81,7 +83,7 @@ function calcularLado(
   if (!vencimento) {
     return { base, juros: 0, multa: 0, encargos: 0, totalCorrigido: base, pago: false, noPrazo: true, diasAtraso: 0 };
   }
-  const r = calcularJurosEMulta(base, vencimento, taxaJurosDia, multaAtraso);
+  const r = calcularJurosEMulta(base, vencimento, taxaJurosDia, multaAtraso, undefined, feriados);
   const noPrazo = r.dias === 0;
   return {
     base,
@@ -131,6 +133,7 @@ const PagamentosUnificados: React.FC<Props> = ({
   onEditPaidParcela,
   onDesfazerParcelamento,
   parcelasRefreshKey,
+  feriados,
   loading,
   emptyMessage = 'Nenhum pagamento registrado.',
 }) => {
@@ -138,12 +141,12 @@ const PagamentosUnificados: React.FC<Props> = ({
 
   const linhas = useMemo(() => {
     return payments.map(p => {
-      const vb = calcularLado(p.vitbank, p.vctoVitbank, p.pgtoVitbank, premissas.taxaJurosDia, premissas.multaAtraso);
-      const mon = calcularLado(p.monetali, p.vctoMonetali, p.pgtoMonetali, premissas.taxaJurosDia, premissas.multaAtraso);
+      const vb = calcularLado(p.vitbank, p.vctoVitbank, p.pgtoVitbank, premissas.taxaJurosDia, premissas.multaAtraso, feriados);
+      const mon = calcularLado(p.monetali, p.vctoMonetali, p.pgtoMonetali, premissas.taxaJurosDia, premissas.multaAtraso, feriados);
       const totalGeral = Math.round((vb.totalCorrigido + mon.totalCorrigido) * 100) / 100;
       return { p, vb, mon, totalGeral };
     });
-  }, [payments, premissas.taxaJurosDia, premissas.multaAtraso]);
+  }, [payments, premissas.taxaJurosDia, premissas.multaAtraso, feriados]);
 
   if (loading) {
     return <div className="py-8 text-center text-muted-foreground text-sm">Carregando pagamentos...</div>;
